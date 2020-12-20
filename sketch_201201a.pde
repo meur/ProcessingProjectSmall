@@ -8,8 +8,17 @@ int mapLeftMargin;
 int mapTopMargin;
 
 final int rollbarHeight = 30;
-double selectedMin = 0;
-double selectedMax = 1;
+final float miniboxW = 8;
+final float miniboxH = 20;
+float rollbarCenterY;
+float selectedMin = 0;
+float selectedMax = 1;
+boolean mouseOverMin;
+boolean mouseOverMax;
+boolean mouseLockedMax = false;
+boolean mouseLockedMin = false;
+boolean minActive = false;
+boolean maxActive = false;
 
 void setup() {
   size(1356, 710);
@@ -19,6 +28,14 @@ void setup() {
   lakossag = table.findRow("lakossag", "date");
 
   setupShapeSize();
+  setupActiveBar();
+  
+  rollbarCenterY = height - rollbarHeight / 2;
+}
+
+void setupActiveBar() {
+  maxActive = (mouseOverMax || mouseLockedMax) && !mouseLockedMin;
+  minActive = (mouseOverMin || mouseLockedMin) && !mouseLockedMax;
 }
 
 void setupShapeSize() {
@@ -45,20 +62,12 @@ void setupShapeSize() {
   mapTopMargin = (maxHeight - mapHeight) / 2;
 }
 
-void setupRollbar() {
-  int margin = mapLeftMargin;
-  if (margin == 0) {
-    margin = 5;
-  }
-  
-  fill(200, 20, 20);
-  
-  rectMode(CENTER);
-  rect(margin + mapWidth / 2, height - rollbarHeight / 2, mapWidth, rollbarHeight / 3, 7);
-}
-
 void draw() {
   background(255);
+  
+  mouseOverMax = (Math.abs(rollbarCenterY - mouseY) < miniboxH / 2 + 2) && (Math.abs(map(selectedMax, 0, 1, mapLeftMargin, mapLeftMargin + mapWidth) - mouseX) < miniboxW / 2 + 2);
+  mouseOverMin = !mouseOverMax &&
+                 (Math.abs(rollbarCenterY - mouseY) < miniboxH / 2 + 2) && (Math.abs(map(selectedMin, 0, 1, mapLeftMargin, mapLeftMargin + mapWidth) - mouseX) < miniboxW / 2 + 2);
   
   setupRollbar();
   
@@ -79,6 +88,49 @@ void draw() {
     shapeTop(countie);
     shapeBottom(countie);
   }
+}
+
+void mouseMoved() {
+  setupActiveBar();
+}
+
+void mouseDragged() {
+  if (maxActive) {
+    mouseLockedMax = true;
+    final float tempMax = map(mouseX, mapLeftMargin, mapLeftMargin + mapWidth, 0, 1);
+    if (tempMax >= selectedMin && tempMax <= 1) {
+      selectedMax = tempMax;
+    }
+  }
+  if (minActive) {
+    mouseLockedMin = true;
+    final float tempMin = map(mouseX, mapLeftMargin, mapLeftMargin + mapWidth, 0, 1);
+    if (tempMin <= selectedMax && tempMin >= 0) {
+      selectedMin = tempMin;
+    }
+  }
+}
+
+void mouseReleased() {
+  mouseLockedMax = false;
+  mouseLockedMin = false;
+  setupActiveBar();
+}
+
+void setupRollbar() {
+  fill(150, 20, 20);  
+  rectMode(CENTER);
+  rect(mapLeftMargin + mapWidth / 2, rollbarCenterY, mapWidth, rollbarHeight / 3, 7);
+  
+  fill(0);
+  rect(mapLeftMargin + selectedMin * mapWidth, rollbarCenterY, miniboxW + 2, miniboxH + 2, 2);
+  fill(20, 100, minActive ? 200 : 10);
+  rect(mapLeftMargin + selectedMin * mapWidth, rollbarCenterY, miniboxW, miniboxH, 2);
+  
+  fill(0);
+  rect(mapLeftMargin + selectedMax * mapWidth, rollbarCenterY, miniboxW + 2, miniboxH + 2, 2);
+  fill(20, 100, maxActive ? 200 : 10);
+  rect(mapLeftMargin + selectedMax * mapWidth, rollbarCenterY, miniboxW, miniboxH, 2);
 }
 
 void shapeTop(final PShape countie) {
