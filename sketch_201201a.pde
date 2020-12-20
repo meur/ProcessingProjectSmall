@@ -25,7 +25,7 @@ void setup() {
   hungary = loadShape("HU_counties_blank.svg");
   table = loadTable("data.csv", "header");
 
-  lakossag = table.findRow("lakossag", "date");
+  lakossag = table.findRow("lakossag", "date"); //<>//
 
   setupShapeSize();
   setupActiveBar();
@@ -71,23 +71,58 @@ void draw() {
   
   setupRollbar();
   
-  TableRow row = table.findRow("2020-12-01", "date");
+  TableRow row = getSelectedRow();
+  
+  float maxRatio = 0;
+  float minRatio = 1;
   for (int m = 1; m < row.getColumnCount() - 1; m++) {
     final String countieName = row.getColumnTitle(m);
 
     final int lak = lakossag.getInt(countieName);
     final int cov = row.getInt(countieName);
-    double arany = (double)cov / lak;
-    arany *= 10;
+    float arany = (float)cov / lak;
+    if (arany > maxRatio) {
+      maxRatio = arany;
+    }
+    if (arany < minRatio) {
+      minRatio = arany;
+    }
+  }
+  
+  for (int m = 1; m < row.getColumnCount() - 1; m++) {
+    final String countieName = row.getColumnTitle(m);
 
+    final int lak = lakossag.getInt(countieName);
+    final int cov = row.getInt(countieName);
+    float arany = ((float)cov / lak);
+    final int colour0 = (int)map(arany, minRatio, maxRatio, 240, 0);
+    
     final PShape countie = hungary.getChild(countieName);
     countie.disableStyle();
     
-    fill((int)(arany * 255), (int)(arany * 255), (int)(arany * 255));
+    fill(colour0, colour0, colour0);
     noStroke();
     shapeTop(countie);
     shapeBottom(countie);
   }
+}
+
+TableRow getSelectedRow() {
+  // nagyon nem szép de csak így működött
+  TableRow row = null;
+  int rowIndex = (int)(selectedMax * (table.getRowCount() - 1));
+  if (rowIndex < 2) {
+    rowIndex = 2;
+  }
+  int i = 1;
+  for (TableRow crow : table.rows()) {
+    if (i == rowIndex) {
+      row = crow;
+      break;
+    }
+    i++;
+  }
+  return row;
 }
 
 void mouseMoved() {
