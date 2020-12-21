@@ -22,6 +22,7 @@ boolean maxActive = false;
 
 void setup() {
   size(1356, 710);
+  noStroke();
   hungary = loadShape("HU_counties_blank.svg");
   table = loadTable("data.csv", "header");
 
@@ -75,6 +76,8 @@ void draw() {
   
   float maxRatio = 0;
   float minRatio = 1;
+  int maxAbs = 0;
+  int minAbs = 10000000;
   for (int m = 1; m < row.getColumnCount() - 1; m++) {
     final String countieName = row.getColumnTitle(m);
 
@@ -87,6 +90,12 @@ void draw() {
     if (arany < minRatio) {
       minRatio = arany;
     }
+    if (cov > maxAbs) {
+      maxAbs = cov;
+    }
+    if (cov < minAbs) {
+      minAbs = cov;
+    }
   }
   
   for (int m = 1; m < row.getColumnCount() - 1; m++) {
@@ -96,13 +105,14 @@ void draw() {
     final int cov = row.getInt(countieName);
     float arany = ((float)cov / lak);
     final int colour0 = (int)map(arany, minRatio, maxRatio, 240, 0);
+    final int colour1 = (int)map(cov, minAbs, maxAbs, 240, 0);
     
     final PShape countie = hungary.getChild(countieName);
     countie.disableStyle();
     
     fill(colour0, colour0, colour0);
-    noStroke();
     shapeTop(countie);
+    fill(colour1, colour1, colour1);
     shapeBottom(countie);
   }
 }
