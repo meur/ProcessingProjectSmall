@@ -6,6 +6,11 @@ int mapWidth;
 int mapHeight;
 int mapLeftMargin;
 int mapTopMargin;
+  
+float maxRatio = 0;
+float minRatio = 1;
+int maxAbs = 0;
+int minAbs = 10000000;
 
 final int rollbarHeight = 30;
 final float miniboxW = 8;
@@ -20,18 +25,22 @@ boolean mouseLockedMin = false;
 boolean minActive = false;
 boolean maxActive = false;
 
+final int MAX_LIGHT = 240;
+
 void setup() {
   size(1356, 710);
   noStroke();
+  frameRate(30);
   hungary = loadShape("HU_counties_blank.svg");
   table = loadTable("data.csv", "header");
 
-  lakossag = table.findRow("lakossag", "date"); //<>//
+  lakossag = table.findRow("lakossag", "date");
 
   setupShapeSize();
   setupActiveBar();
   
   rollbarCenterY = height - rollbarHeight / 2;
+  noLoop();
 }
 
 void setupActiveBar() {
@@ -74,10 +83,10 @@ void draw() {
   
   TableRow row = getSelectedRow();
   
-  float maxRatio = 0;
-  float minRatio = 1;
-  int maxAbs = 0;
-  int minAbs = 10000000;
+  maxRatio = 0;
+  minRatio = 1;
+  maxAbs = 0;
+  minAbs = 10000000;
   for (int m = 1; m < row.getColumnCount() - 1; m++) {
     final String countieName = row.getColumnTitle(m);
 
@@ -98,23 +107,42 @@ void draw() {
     }
   }
   
+  drawSamples();
+  
   for (int m = 1; m < row.getColumnCount() - 1; m++) {
     final String countieName = row.getColumnTitle(m);
 
     final int lak = lakossag.getInt(countieName);
     final int cov = row.getInt(countieName);
     float arany = ((float)cov / lak);
-    final int colour0 = (int)map(arany, minRatio, maxRatio, 240, 0);
-    final int colour1 = (int)map(cov, minAbs, maxAbs, 240, 0);
+    final int colour0 = (int)map(arany, minRatio, maxRatio, MAX_LIGHT, 0);
+    final int colour1 = (int)map(cov, minAbs, maxAbs, MAX_LIGHT, 0);
     
     final PShape countie = hungary.getChild(countieName);
     countie.disableStyle();
     
-    fill(colour0, colour0, colour0);
+    fill(colour0);
     shapeTop(countie);
-    fill(colour1, colour1, colour1);
+    fill(colour1);
     shapeBottom(countie);
   }
+}
+
+void drawSamples() {
+  final int sampleTopMargin = 25;
+  final int sampleHeight = 10;
+  final int sampleWidth = 150;
+  final int sampleTextYOffset = 16;
+  setGradient(mapLeftMargin, sampleTopMargin, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
+  setGradient(mapLeftMargin, sampleTopMargin + mapHeight + mapTopMargin * 3, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
+  textSize(12);
+  fill(0);
+  textAlign(LEFT);
+  text(String.format("%.2f", minRatio * 100) + "%", mapLeftMargin, sampleTopMargin + sampleHeight + sampleTextYOffset);
+  text(minAbs, mapLeftMargin, mapHeight + mapTopMargin * 3 + sampleTopMargin + sampleHeight + sampleTextYOffset);
+  textAlign(RIGHT);
+  text(String.format("%.2f", maxRatio * 100) + "%", mapLeftMargin + sampleWidth, sampleTopMargin + sampleHeight + sampleTextYOffset);
+  text(maxAbs, mapLeftMargin + sampleWidth, mapHeight + mapTopMargin * 3 + sampleTopMargin + sampleHeight + sampleTextYOffset);
 }
 
 TableRow getSelectedRow() {
@@ -137,6 +165,7 @@ TableRow getSelectedRow() {
 
 void mouseMoved() {
   setupActiveBar();
+  redraw();
 }
 
 void mouseDragged() {
@@ -154,12 +183,51 @@ void mouseDragged() {
       selectedMin = tempMin;
     }
   }
+  redraw();
 }
 
 void mouseReleased() {
   mouseLockedMax = false;
   mouseLockedMin = false;
   setupActiveBar();
+  redraw();
+}
+
+final float STEP = 0.05;
+void keyPressed() {
+  switch(key) {
+    case 'a':
+      incrementMin(-1 * STEP);
+      break;
+    case 's':
+      incrementMin(STEP);
+      break;
+    case 'd':
+      incrementMax(-1 * STEP);
+      break;
+    case 'f':
+      incrementMax(STEP);
+      break;
+  }
+  setupActiveBar();
+  redraw(); //<>//
+}
+
+void incrementMin(final float value) {
+  if (value > 0) {
+    selectedMin = (selectedMin + value < selectedMax) ? (selectedMin + value) : selectedMax;
+  }
+  else {
+    selectedMin = (selectedMin + value > 0) ? (selectedMin + value) : 0;    
+  }
+}
+void incrementMax(final float value) {
+  if (value > 0) {
+    selectedMax = (selectedMax + value < 1) ? (selectedMax + value) : 1;
+  }
+  else {
+    selectedMax = (selectedMax + value > selectedMin) ? (selectedMax + value) : selectedMin;
+  }
 }
 
 void setupRollbar() {
@@ -184,4 +252,31 @@ void shapeTop(final PShape countie) {
 
 void shapeBottom(final PShape countie) {
   shape(countie, mapLeftMargin, mapHeight + 3 * mapTopMargin, mapWidth, mapHeight);
+}
+
+
+// https://processing.org/examples/lineargradient.html
+int Y_AXIS = 1;
+int X_AXIS = 2;
+void setGradient(int x, int y, float w, float h, color c1, color c2, int axis ) {
+
+  noFill();
+
+  if (axis == Y_AXIS) {  // Top to bottom gradient
+    for (int i = y; i <= y+h; i++) {
+      float inter = map(i, y, y+h, 0, 1);
+      color c = lerpColor(c1, c2, inter);
+      stroke(c);
+      line(x, i, x+w, i);
+    }
+  }  
+  else if (axis == X_AXIS) {  // Left to right gradient
+    for (int i = x; i <= x+w; i++) {
+      float inter = map(i, x, x+w, 0, 1);
+      color c = lerpColor(c1, c2, inter);
+      stroke(c);
+      line(i, y, i, y+h);
+    }
+  }
+  noStroke();
 }
