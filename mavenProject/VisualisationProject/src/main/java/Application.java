@@ -117,7 +117,7 @@ public class Application extends PApplet {
 
     @Override
     public void draw() {
-        background(255);
+        background(color(252, 255, 252));
 
         rowIndexMin = getSelectedRowIndex(selectedMin);
         rowIndexMax = getSelectedRowIndex(selectedMax);
@@ -182,15 +182,6 @@ public class Application extends PApplet {
         for (int m = 1; m < row.getColumnCount() - 1; m++) {
             final String countieName = row.getColumnTitle(m);
 
-            if (selectedCounties.contains(countieName)) {
-                stroke(color(255, 0, 0));
-                strokeWeight(2);
-            }
-            else {
-                strokeWeight(1);
-                stroke(255f);
-            }
-
             final int lak = lakossag.getInt(countieName);
             final int cov = row.getInt(countieName);
             float arany = ((float)cov / lak);
@@ -200,10 +191,29 @@ public class Application extends PApplet {
             final PShape countie = hungary.getChild(countieName);
             countie.disableStyle();
 
+            stroke(255f);
+            strokeWeight(2);
             fill(colour0);
             shapeTop(countie);
             fill(colour1);
             shapeBottom(countie);
+
+            // circles for selected counties
+            if (selectedCounties.contains(countieName)) {
+                final RPoint centroid = grp.getChild(countieName).getCentroid();
+                final int mappedX = (int)map(centroid.x, 0, hungary.width, mapLeftMargin, mapLeftMargin + mapWidth);
+                final int mappedY1 = (int)map(centroid.y, 0, hungary.height, mapTopMargin, mapTopMargin + mapHeight);
+                final int mappedY2 = (int)map(centroid.y, 0, hungary.height, mapTopMargin * 3 + mapHeight,
+                        mapTopMargin * 3 + mapHeight * 2);
+
+                ellipseMode(RADIUS);
+                stroke(255f);
+                strokeWeight(2);
+                fill(colorOf(countieName));
+                ellipse(mappedX, mappedY1, 6, 6);
+                ellipse(mappedX, mappedY2, 6, 6);
+                noStroke();
+            }
         }
         noStroke();
     }
