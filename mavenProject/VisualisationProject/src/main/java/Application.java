@@ -1,3 +1,6 @@
+import geomerative.RG;
+import geomerative.RPoint;
+import geomerative.RShape;
 import processing.core.PApplet;
 import processing.core.PShape;
 import processing.data.Table;
@@ -41,9 +44,14 @@ public class Application extends PApplet {
     final int chartLeftMargin = 50;
     final float axisThickness = 2;
     final Set<String> selectedCounties = new HashSet<String>();
+    String hoveredCountie = null;
 
     int rowIndexMin;
     int rowIndexMax;
+
+    RShape grp;
+
+    private static final String SVG = "HU_counties_blank.svg";
 
     @Override
     public void settings() {
@@ -51,18 +59,24 @@ public class Application extends PApplet {
         smooth(8);
     }
 
+    private void initGeomerative() {
+        RG.init(this);
+        RG.ignoreStyles(true);
+        RG.setPolygonizer(RG.ADAPTATIVE);
+        grp = RG.loadShape(SVG);
+    }
+
     @Override
     public void setup() {
+        initGeomerative();
         noStroke();
         frameRate(30);
-        hungary = loadShape("HU_counties_blank.svg");
+        hungary = loadShape(SVG);
         table = loadTable("data.csv", "header");
 
         lakossag = table.findRow("lakossag", "date");
 
-        selectedCounties.add("vas");
-        selectedCounties.add("somogy");
-        selectedCounties.add("gyms");
+        selectedCounties.add("hb");
         selectedCounties.add("budapest");
 
         setupShapeSize();
@@ -108,11 +122,27 @@ public class Application extends PApplet {
         rowIndexMin = getSelectedRowIndex(selectedMin);
         rowIndexMax = getSelectedRowIndex(selectedMax);
 
+        setHoveredCountie();
         processMousePosition();
         setupRollbar();
         drawMaps();
         drawSamples();
         drawDiagrams();
+    }
+
+    private void setHoveredCountie() {
+        final int mappedX = (int)map(mouseX, mapLeftMargin, mapLeftMargin + mapWidth, 0, hungary.width);
+        final int mappedY1 = (int)map(mouseY, mapTopMargin, mapTopMargin + mapHeight, 0, hungary.height);
+        final int mappedY2 = (int)map(mouseY, mapTopMargin * 3 + mapHeight, mapTopMargin * 3 + mapHeight * 2, 0, hungary.height);
+
+        hoveredCountie = null;
+        RPoint p1 = new RPoint(mappedX, mappedY1);
+        RPoint p2 = new RPoint(mappedX, mappedY2);
+        for(int i = 0; i < grp.children[0].countChildren(); i++) {
+            if(grp.children[0].children[i].contains(p1) || grp.children[0].children[i].contains(p2)){
+                hoveredCountie = (grp.children[0].children[i].name);
+            }
+        }
     }
 
     private void processMousePosition() {
@@ -392,6 +422,18 @@ public class Application extends PApplet {
         mouseLockedMin = false;
         setupActiveBar();
         redraw();
+    }
+
+    @Override
+    public void mouseClicked() {
+        if (hoveredCountie != null) {
+            if (selectedCounties.contains(hoveredCountie)) {
+                selectedCounties.remove(hoveredCountie);
+            }
+            else {
+                selectedCounties.add(hoveredCountie);
+            }
+        }
     }
 
     final float STEP = 0.05f;

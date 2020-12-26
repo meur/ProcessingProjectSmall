@@ -19,6 +19,13 @@
             <artifactId>core</artifactId>
             <version>3.3.7</version>
         </dependency>
+
+        <!-- mvn install:install-file -Dfile=\Users\Imre\Documents\Processing\libraries\geomerative\library\geomerative.jar -DgroupId=geomerative -DartifactId=geomerative -Dversion=0.0.1 -Dpackaging=jar -DgeneratePom=true -->
+        <dependency>
+            <groupId>geomerative</groupId>
+            <artifactId>geomerative</artifactId>
+            <version>0.0.1</version>
+        </dependency>
     </dependencies>
 
 </project>
