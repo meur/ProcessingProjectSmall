@@ -126,8 +126,29 @@ public class Application extends PApplet {
         processMousePosition();
         setupRollbar();
         drawMaps();
+        drawMapTooltip();
         drawSamples();
         drawDiagrams();
+    }
+
+    private void drawMapTooltip() {
+        if (hoveredCountie != null) {
+            final TableRow row = getSelectedRow(selectedMax);
+            final int cov = getAbsoluteAffected(row, hoveredCountie);
+            final float arany = getAffectedRatio(row, hoveredCountie) * 100;
+            final String fullName = Countie.valueOf(hoveredCountie).fullName;
+            final int boxLeft = mouseX + 12;
+            rectMode(CORNER);
+            textAlign(LEFT);
+            stroke(0f);
+            strokeWeight(1);
+            fill(200f);
+            rect(boxLeft, mouseY, max(50, min(150, fullName.length() * 9)), 53, 7);
+            fill(0f);
+            text(fullName, boxLeft + 5, mouseY + 16);
+            text(String.format("%.2f", arany) + "%", boxLeft + 5, mouseY + 16 * 2);
+            text(String.format("%,d", cov), boxLeft + 5, mouseY + 16 * 3);
+        }
     }
 
     private void setHoveredCountie() {
@@ -219,6 +240,7 @@ public class Application extends PApplet {
     }
 
     private void drawSamples() {
+        noStroke();
         final int sampleTopMargin = 25;
         final int sampleHeight = 10;
         final int sampleWidth = 150;
@@ -514,6 +536,7 @@ public class Application extends PApplet {
         int Y_AXIS = 1;
         int X_AXIS = 2;
         noFill();
+        strokeWeight(1);
 
         if (axis == Y_AXIS) {  // Top to bottom gradient
             for (int i = y; i <= y+h; i++) {
@@ -550,7 +573,7 @@ public class Application extends PApplet {
         budapest("Budapest", 233, 215, 142),
         csongrad("Csongrád-Csanád", 228, 191, 128),
         fejer("Fejér", 233, 215, 142),
-        gyms("Győr-Moson-Sopron", 226, 151, 93),
+        gyms("Györ-Moson-Sopron", 226, 151, 93),
         hb("Hajdú-Bihar", 241, 150, 112),
         heves("Heves", 225, 101, 82),
         jnsz("Jász-Nagykun-Szolnok", 201, 74, 83),
