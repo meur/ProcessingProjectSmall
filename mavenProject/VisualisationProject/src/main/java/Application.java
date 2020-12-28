@@ -6,7 +6,9 @@ import processing.core.PShape;
 import processing.data.Table;
 import processing.data.TableRow;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Application extends PApplet {
@@ -45,6 +47,9 @@ public class Application extends PApplet {
     final float axisThickness = 2;
     final Set<String> selectedCounties = new HashSet<String>();
     String hoveredCountie = null;
+
+    boolean mouseOverTopChart;
+    boolean mouseOverBottomChart;
 
     int rowIndexMin;
     int rowIndexMax;
@@ -129,6 +134,7 @@ public class Application extends PApplet {
         drawMapTooltip();
         drawSamples();
         drawDiagrams();
+        drawInfoAxis();
     }
 
     private void drawMapTooltip() {
@@ -137,18 +143,34 @@ public class Application extends PApplet {
             final int cov = getAbsoluteAffected(row, hoveredCountie);
             final float arany = getAffectedRatio(row, hoveredCountie) * 100;
             final String fullName = Countie.valueOf(hoveredCountie).fullName;
-            final int boxLeft = mouseX + 12;
-            rectMode(CORNER);
-            textAlign(LEFT);
-            stroke(0f);
-            strokeWeight(1);
-            fill(200f);
-            rect(boxLeft, mouseY, max(50, min(150, fullName.length() * 9)), 53, 7);
-            fill(0f);
-            text(fullName, boxLeft + 5, mouseY + 16);
-            text(String.format("%.2f", arany) + "%", boxLeft + 5, mouseY + 16 * 2);
-            text(String.format("%,d", cov), boxLeft + 5, mouseY + 16 * 3);
+            final List<String> lines = new ArrayList<>();
+            lines.add(String.format("%.2f", arany) + "%");
+            lines.add(String.format("%,d", cov));
+            drawToolTip(50, 150, fullName, lines);
         }
+    }
+
+    private void drawToolTip(final int minWidth, final int maxWidth, final String title, final List<String> lines) {
+        rectMode(CORNER);
+        textAlign(LEFT);
+        stroke(0f);
+        strokeWeight(1);
+        fill(200f);
+        int maxlen = title.length();
+        for (String line: lines) {
+            maxlen = max(maxlen, line.length());
+        }
+        final int boxWidth = max(minWidth, min(maxWidth, maxlen * 9));
+        final int boxHeight = 16 * (lines.size() + 1) + 5;
+        final int x = min(mouseX + 12, width - boxWidth);
+        final int y = min(mouseY + 16, height - boxHeight);
+        rect(x, y, boxWidth, boxHeight, 7);
+        fill(0f);
+        text(title, x + 5, y + 16);
+        for (int i = 0; i < lines.size(); i++) {
+            text(lines.get(i), x + 5, y + 16 * (i + 2));
+        }
+        noStroke();
     }
 
     private void setHoveredCountie() {
@@ -320,6 +342,40 @@ public class Application extends PApplet {
         noStroke();
     }
 
+    private void drawInfoAxis() {
+        mouseOverTopChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
+                && (mouseY > getTopDiagramYAxisMax() && mouseY < getTopDiagramYAxisMin() + chartTopMargin);
+        mouseOverBottomChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
+                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin());
+
+        if (mouseOverTopChart || mouseOverBottomChart) {
+            int axisBottom = 0;
+            int axisTop = 0;
+            final List<String> lines = new ArrayList<>();
+            final int rowIndex = (int)map(mouseX, getXAxisMin() + axisThickness, getXAxisMax() - axisThickness, rowIndexMin, rowIndexMax);
+            final TableRow cRow = getSelectedRowByIndex(rowIndex);
+            if (mouseOverTopChart) {
+                axisBottom = (int)getTopDiagramYAxisMin();
+                axisTop = (int)getTopDiagramYAxisMax();
+                for (String countie: selectedCounties) {
+                    lines.add(String.format("%s: %.2f", Countie.valueOf(countie).fullName, getAffectedRatio(cRow, countie) * 100));
+                }
+            }
+            else if (mouseOverBottomChart) {
+                axisBottom = (int)getBottomDiagramYAxisMin();
+                axisTop = (int)getBottomDiagramYAxisMax();
+                for (String countie: selectedCounties) {
+                    lines.add(String.format("%s: %,d", Countie.valueOf(countie).fullName, getAbsoluteAffected(cRow, countie)));
+                }
+            }
+            strokeWeight(1);
+            stroke(0f);
+            line(mouseX, axisBottom, mouseX, axisTop);
+            drawToolTip(50, 200, cRow.getString(0), lines);
+            noStroke();
+        }
+    }
+
     private void signAxes() {
 
         int num = (int)getYAxisHeight() / 50;
@@ -346,8 +402,8 @@ public class Application extends PApplet {
 
             if (i > 0) {
                 fill(200f);
-                rect(getXAxisMin() + i * step, getBottomDiagramYAxisMin(), 1, -1 * getYAxisHeight());
-                rect(getXAxisMin() + i * step, getTopDiagramYAxisMin(), 1, -1 * getYAxisHeight());
+                rect(getXAxisMin() + i * step + axisThickness, getBottomDiagramYAxisMin(), 1, -1 * getYAxisHeight());
+                rect(getXAxisMin() + i * step + axisThickness, getTopDiagramYAxisMin(), 1, -1 * getYAxisHeight());
             }
         }
     }
@@ -483,6 +539,9 @@ public class Application extends PApplet {
                 break;
             case 'f':
                 incrementMax(STEP);
+                break;
+            case 'c':
+                selectedCounties.clear();
                 break;
         }
         setupActiveBar();
