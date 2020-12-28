@@ -146,24 +146,29 @@ public class Application extends PApplet {
             final List<String> lines = new ArrayList<>();
             lines.add(String.format("%.2f", arany) + "%");
             lines.add(String.format("%,d", cov));
-            drawToolTip(50, 150, fullName, lines);
+            drawToolTip(50, 150, fullName, lines, false);
         }
     }
 
-    private void drawToolTip(final int minWidth, final int maxWidth, final String title, final List<String> lines) {
+    private void drawToolTip(final int minWidth, final int maxWidth, final String title, final List<String> lines,
+                             final boolean left) {
         rectMode(CORNER);
         textAlign(LEFT);
         stroke(0f);
         strokeWeight(1);
-        fill(200f);
+        fill(color(254, 240, 220));
         int maxlen = title.length();
         for (String line: lines) {
             maxlen = max(maxlen, line.length());
         }
         final int boxWidth = max(minWidth, min(maxWidth, maxlen * 9));
         final int boxHeight = 16 * (lines.size() + 1) + 5;
-        final int x = min(mouseX + 12, width - boxWidth);
-        final int y = min(mouseY + 16, height - boxHeight);
+        int x = left
+                ? mouseX - 5 - boxWidth
+                : min(mouseX + 12, width - boxWidth);
+        final int y = left && mouseY > height / 2
+                ? mouseY - boxHeight
+                : min(mouseY + 16, height - boxHeight);
         rect(x, y, boxWidth, boxHeight, 7);
         fill(0f);
         text(title, x + 5, y + 16);
@@ -346,13 +351,13 @@ public class Application extends PApplet {
         mouseOverTopChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
                 && (mouseY > getTopDiagramYAxisMax() && mouseY < getTopDiagramYAxisMin() + chartTopMargin);
         mouseOverBottomChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
-                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin());
+                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin() + chartTopMargin);
 
         if (mouseOverTopChart || mouseOverBottomChart) {
             int axisBottom = 0;
             int axisTop = 0;
             final List<String> lines = new ArrayList<>();
-            final int rowIndex = (int)map(mouseX, getXAxisMin() + axisThickness, getXAxisMax() - axisThickness, rowIndexMin, rowIndexMax);
+            final int rowIndex = (int)map(mouseX, getXAxisMin(), getXAxisMax() - axisThickness, rowIndexMin, rowIndexMax);
             final TableRow cRow = getSelectedRowByIndex(rowIndex);
             if (mouseOverTopChart) {
                 axisBottom = (int)getTopDiagramYAxisMin();
@@ -371,7 +376,7 @@ public class Application extends PApplet {
             strokeWeight(1);
             stroke(0f);
             line(mouseX, axisBottom, mouseX, axisTop);
-            drawToolTip(50, 200, cRow.getString(0), lines);
+            drawToolTip(50, 200, cRow.getString(0), lines, true);
             noStroke();
         }
     }
