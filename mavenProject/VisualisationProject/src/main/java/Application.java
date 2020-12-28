@@ -15,7 +15,7 @@ public class Application extends PApplet {
 
     PShape hungary;
     Table table;
-    TableRow lakossag;
+    TableRow population;
 
     int mapWidth;
     int mapHeight;
@@ -57,6 +57,19 @@ public class Application extends PApplet {
     RShape grp;
 
     private static final String SVG = "HU_counties_blank.svg";
+    
+    private float maxSelectedRatio;
+    private float maxSelectedAbsolute;
+    private float xAxisMin;
+    private float xAxisMax;
+    private float xAxisWidth;
+    private float yAxisHeight;
+    private float topDiagramYAxisMax;
+    private float topDiagramYAxisMin;
+    private float bottomDiagramYAxisMax;
+    private float bottomDiagramYAxisMin;
+    private int bottomMapBottom;
+    private int bottomMapTop;
 
     @Override
     public void settings() {
@@ -79,7 +92,7 @@ public class Application extends PApplet {
         hungary = loadShape(SVG);
         table = loadTable("data.csv", "header");
 
-        lakossag = table.findRow("lakossag", "date");
+        population = table.findRow("lakossag", "date");
 
         selectedCounties.add("hb");
         selectedCounties.add("budapest");
@@ -118,15 +131,15 @@ public class Application extends PApplet {
         mapHeight = (int) shapeHeight;
         mapLeftMargin = (maxWidth - mapWidth) / 2;
         mapTopMargin = (maxHeight - mapHeight) / 2;
+        bottomMapTop = mapTopMargin * 3 + mapHeight;
+        bottomMapBottom = mapTopMargin * 3 + mapHeight * 2;
     }
 
     @Override
     public void draw() {
         background(color(252, 255, 252));
 
-        rowIndexMin = getSelectedRowIndex(selectedMin);
-        rowIndexMax = getSelectedRowIndex(selectedMax);
-
+        setVariables();
         setHoveredCountie();
         processMousePosition();
         setupRollbar();
@@ -136,6 +149,21 @@ public class Application extends PApplet {
         drawDiagrams();
         drawDiagramColorInfo();
         drawInfoAxis();
+    }
+
+    private void setVariables() {
+        rowIndexMin = getSelectedRowIndex(selectedMin);
+        rowIndexMax = getSelectedRowIndex(selectedMax);
+        setMaxSelectedRatio();
+        setMaxSelectedAbsolute();
+        xAxisMin = width / 2 + chartLeftMargin;
+        xAxisMax = xAxisMin + xAxisWidth;
+        xAxisWidth = width / 2 - 2 * chartLeftMargin;
+        yAxisHeight = height / 2 - 2 * chartTopMargin;
+        topDiagramYAxisMax = chartTopMargin;
+        topDiagramYAxisMin = chartTopMargin + yAxisHeight;
+        bottomDiagramYAxisMax = chartTopMargin * 3 + yAxisHeight;
+        bottomDiagramYAxisMin = chartTopMargin * 3 + yAxisHeight * 2;
     }
 
     private void drawDiagramColorInfo() {
@@ -166,12 +194,12 @@ public class Application extends PApplet {
     private void drawMapTooltip() {
         if (hoveredCountie != null) {
             final TableRow row = getSelectedRow(selectedMax);
-            final int cov = getAbsoluteAffected(row, hoveredCountie);
-            final float arany = getAffectedRatio(row, hoveredCountie) * 100;
+            final int absolute = getAbsoluteAffected(row, hoveredCountie);
+            final float ratio = getAffectedRatio(row, hoveredCountie) * 100;
             final String fullName = Countie.valueOf(hoveredCountie).fullName;
             final List<String> lines = new ArrayList<>();
-            lines.add(String.format("%.2f", arany) + "%");
-            lines.add(String.format("%,d", cov));
+            lines.add(String.format("%.2f", ratio) + "%");
+            lines.add(String.format("%,d", absolute));
             drawToolTip(50, 150, fullName, lines, false);
         }
     }
@@ -207,7 +235,7 @@ public class Application extends PApplet {
     private void setHoveredCountie() {
         final int mappedX = (int)map(mouseX, mapLeftMargin, mapLeftMargin + mapWidth, 0, hungary.width);
         final int mappedY1 = (int)map(mouseY, mapTopMargin, mapTopMargin + mapHeight, 0, hungary.height);
-        final int mappedY2 = (int)map(mouseY, mapTopMargin * 3 + mapHeight, mapTopMargin * 3 + mapHeight * 2, 0, hungary.height);
+        final int mappedY2 = (int)map(mouseY, bottomMapTop, bottomMapBottom, 0, hungary.height);
 
         hoveredCountie = null;
         RPoint p1 = new RPoint(mappedX, mappedY1);
@@ -236,31 +264,22 @@ public class Application extends PApplet {
         minAbs = 10000000;
         for (int m = 1; m < row.getColumnCount() - 1; m++) {
             final String countieName = row.getColumnTitle(m);
-
-            final int cov = getAbsoluteAffected(row, countieName);
-            final float arany = getAffectedRatio(row, countieName);
-            if (arany > maxRatio) {
-                maxRatio = arany;
-            }
-            if (arany < minRatio) {
-                minRatio = arany;
-            }
-            if (cov > maxAbs) {
-                maxAbs = cov;
-            }
-            if (cov < minAbs) {
-                minAbs = cov;
-            }
+            final int absolute = getAbsoluteAffected(row, countieName);
+            final float ratio = getAffectedRatio(row, countieName);
+            maxRatio = max(ratio, maxRatio);
+            minRatio = min(ratio, minRatio);
+            maxAbs = max(absolute, maxAbs);
+            minAbs = min(absolute, minAbs);
         }
 
         for (int m = 1; m < row.getColumnCount() - 1; m++) {
             final String countieName = row.getColumnTitle(m);
 
-            final int lak = lakossag.getInt(countieName);
-            final int cov = row.getInt(countieName);
-            float arany = ((float)cov / lak);
-            final int colour0 = getColor(map(arany, minRatio, maxRatio, 0, 1));
-            final int colour1 = getColor(map(cov, minAbs, maxAbs, 0, 1));
+            final int currentPopulation = population.getInt(countieName);
+            final int absolute = row.getInt(countieName);
+            float ratio = ((float)absolute / currentPopulation);
+            final int colour0 = getColor(map(ratio, minRatio, maxRatio, 0, 1));
+            final int colour1 = getColor(map(absolute, minAbs, maxAbs, 0, 1));
 
             final PShape countie = hungary.getChild(countieName);
             countie.disableStyle();
@@ -277,8 +296,7 @@ public class Application extends PApplet {
                 final RPoint centroid = grp.getChild(countieName).getCentroid();
                 final int mappedX = (int)map(centroid.x, 0, hungary.width, mapLeftMargin, mapLeftMargin + mapWidth);
                 final int mappedY1 = (int)map(centroid.y, 0, hungary.height, mapTopMargin, mapTopMargin + mapHeight);
-                final int mappedY2 = (int)map(centroid.y, 0, hungary.height, mapTopMargin * 3 + mapHeight,
-                        mapTopMargin * 3 + mapHeight * 2);
+                final int mappedY2 = (int)map(centroid.y, 0, hungary.height, bottomMapTop, bottomMapBottom);
                 drawCircle(mappedX, mappedY1, countieName);
                 drawCircle(mappedX, mappedY2, countieName);
             }
@@ -302,15 +320,15 @@ public class Application extends PApplet {
         final int sampleWidth = 150;
         final int sampleTextYOffset = 16;
         setGradient(mapLeftMargin, sampleTopMargin, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
-        setGradient(mapLeftMargin, sampleTopMargin + mapHeight + mapTopMargin * 3, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
+        setGradient(mapLeftMargin, sampleTopMargin + bottomMapTop, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
         textSize(12);
         fill(0);
         textAlign(LEFT);
         text(String.format("%.2f", minRatio * 100) + "%", mapLeftMargin, sampleTopMargin + sampleHeight + sampleTextYOffset);
-        text(String.format("%,d", minAbs), mapLeftMargin, mapHeight + mapTopMargin * 3 + sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(String.format("%,d", minAbs), mapLeftMargin, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
         textAlign(RIGHT);
         text(String.format("%.2f", maxRatio * 100) + "%", mapLeftMargin + sampleWidth, sampleTopMargin + sampleHeight + sampleTextYOffset);
-        text(String.format("%,d",maxAbs), mapLeftMargin + sampleWidth, mapHeight + mapTopMargin * 3 + sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(String.format("%,d",maxAbs), mapLeftMargin + sampleWidth, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
     }
 
     private TableRow getSelectedRow(final float value) {
@@ -345,26 +363,24 @@ public class Application extends PApplet {
         fill(0);
         rectMode(CORNER);
 
-        rect(getXAxisMin(), getTopDiagramYAxisMax(), axisThickness, getYAxisHeight());
-        rect(getXAxisMin(), getTopDiagramYAxisMin(), getXAxisWidth(), axisThickness);
+        rect(xAxisMin, topDiagramYAxisMax, axisThickness, yAxisHeight);
+        rect(xAxisMin, topDiagramYAxisMin, xAxisWidth, axisThickness);
 
-        rect(getXAxisMin(), getBottomDiagramYAxisMax(), axisThickness, getYAxisHeight());
-        rect(getXAxisMin(), getBottomDiagramYAxisMin(), getXAxisWidth(), axisThickness);
+        rect(xAxisMin, bottomDiagramYAxisMax, axisThickness, yAxisHeight);
+        rect(xAxisMin, bottomDiagramYAxisMin, xAxisWidth, axisThickness);
 
         signAxes();
 
         strokeWeight(2);
         final int selectedRowNum = rowIndexMax - rowIndexMin + 1;
         if (selectedRowNum > 1) {
-            final float maxSelectedRatio = getMaxSelectedRatio();
-            final float maxSelectedAbs = getMaxSelectedAbsolute();
             for (String countieName : selectedCounties) {
                 int[][] positions = new int[selectedRowNum][3];  // x, y1, y2
                 for (int i = rowIndexMin; i <= rowIndexMax; i++) {
                     final TableRow currentRow = getSelectedRowByIndex(i);
-                    positions[i - rowIndexMin][0] = (int) map(i, rowIndexMin, rowIndexMax, getXAxisMin(), getXAxisMax());
-                    positions[i - rowIndexMin][1] = (int) map(getAffectedRatio(currentRow, countieName), 0, maxSelectedRatio, getTopDiagramYAxisMin(), getTopDiagramYAxisMax());
-                    positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbs, getBottomDiagramYAxisMin(), getBottomDiagramYAxisMax());
+                    positions[i - rowIndexMin][0] = (int) map(i, rowIndexMin, rowIndexMax, xAxisMin, xAxisMax);
+                    positions[i - rowIndexMin][1] = (int) map(getAffectedRatio(currentRow, countieName), 0, maxSelectedRatio, topDiagramYAxisMin, topDiagramYAxisMax);
+                    positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbsolute, bottomDiagramYAxisMin, bottomDiagramYAxisMax);
                 }
                 stroke(colorOf(countieName));
                 for (int i = 1; i < selectedRowNum; i++) {
@@ -377,27 +393,27 @@ public class Application extends PApplet {
     }
 
     private void drawInfoAxis() {
-        mouseOverTopChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
-                && (mouseY > getTopDiagramYAxisMax() && mouseY < getTopDiagramYAxisMin());
-        mouseOverBottomChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
-                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin());
+        mouseOverTopChart = (mouseX > xAxisMin && mouseX < xAxisMax)
+                && (mouseY > topDiagramYAxisMax && mouseY < topDiagramYAxisMin);
+        mouseOverBottomChart = (mouseX > xAxisMin && mouseX < xAxisMax)
+                && (mouseY > bottomDiagramYAxisMax && mouseY < bottomDiagramYAxisMin);
 
         if (mouseOverTopChart || mouseOverBottomChart) {
             int axisBottom = 0;
             int axisTop = 0;
             final List<String> lines = new ArrayList<>();
-            final int rowIndex = (int)map(mouseX, getXAxisMin(), getXAxisMax() - axisThickness, rowIndexMin, rowIndexMax);
+            final int rowIndex = (int)map(mouseX, xAxisMin, xAxisMax - axisThickness, rowIndexMin, rowIndexMax);
             final TableRow cRow = getSelectedRowByIndex(rowIndex);
             if (mouseOverTopChart) {
-                axisBottom = (int)getTopDiagramYAxisMin();
-                axisTop = (int)getTopDiagramYAxisMax();
+                axisBottom = (int)topDiagramYAxisMin;
+                axisTop = (int)topDiagramYAxisMax;
                 for (String countie: selectedCounties) {
                     lines.add(String.format("%s: %.2f", Countie.valueOf(countie).fullName, getAffectedRatio(cRow, countie) * 100));
                 }
             }
             else if (mouseOverBottomChart) {
-                axisBottom = (int)getBottomDiagramYAxisMin();
-                axisTop = (int)getBottomDiagramYAxisMax();
+                axisBottom = (int)bottomDiagramYAxisMin;
+                axisTop = (int)bottomDiagramYAxisMax;
                 for (String countie: selectedCounties) {
                     lines.add(String.format("%s: %,d", Countie.valueOf(countie).fullName, getAbsoluteAffected(cRow, countie)));
                 }
@@ -412,38 +428,37 @@ public class Application extends PApplet {
 
     private void signAxes() {
 
-        int num = (int)getYAxisHeight() / 50;
-        int step = (int)getYAxisHeight() / num;
+        int num = (int)yAxisHeight / 50;
+        int step = (int)yAxisHeight / num;
         final int signRightMargin = 5;
         textAlign(RIGHT);
         for (int i = 0; i <= num; i++) {
-            text(String.format("%.2f", getMaxSelectedRatio() * (num - i) / num * 100) + "%", getXAxisMin() - signRightMargin, getTopDiagramYAxisMax() + i * step);
-            text(String.format("%,.0f", getMaxSelectedAbsolute() * (num - i) / num), getXAxisMin() - signRightMargin, getBottomDiagramYAxisMax() + i * step);
+            text(String.format("%.2f", maxSelectedRatio * (num - i) / num * 100) + "%", xAxisMin - signRightMargin, topDiagramYAxisMax + i * step);
+            text(String.format("%,.0f", maxSelectedAbsolute * (num - i) / num), xAxisMin - signRightMargin, bottomDiagramYAxisMax + i * step);
         }
 
         rectMode(CORNER);
 
-        num = (int)getXAxisWidth() / 100;
-        step = (int)getXAxisWidth() / num;
+        num = (int)xAxisWidth / 100;
+        step = (int)xAxisWidth / num;
         final int signTopMargin = 20;
         textAlign(CENTER);
         for (int i = 0; i <= num; i++) {
             fill(0f);
             final int rowIndex = (int)map(i, 0, num, rowIndexMin, rowIndexMax);
             final String datum = getSelectedRowByIndex(rowIndex).getString(0);
-            text(datum, getXAxisMin() + i * step, getTopDiagramYAxisMin() + signTopMargin);
-            text(datum, getXAxisMin() + i * step, getBottomDiagramYAxisMin() + signTopMargin);
+            text(datum, xAxisMin + i * step, topDiagramYAxisMin + signTopMargin);
+            text(datum, xAxisMin + i * step, bottomDiagramYAxisMin + signTopMargin);
 
             if (i > 0) {
                 fill(200f);
-                rect(getXAxisMin() + i * step + axisThickness, getBottomDiagramYAxisMin(), 1, -1 * getYAxisHeight());
-                rect(getXAxisMin() + i * step + axisThickness, getTopDiagramYAxisMin(), 1, -1 * getYAxisHeight());
+                rect(xAxisMin + i * step + axisThickness, bottomDiagramYAxisMin, 1, -1 * yAxisHeight);
+                rect(xAxisMin + i * step + axisThickness, topDiagramYAxisMin, 1, -1 * yAxisHeight);
             }
         }
     }
 
-    //TODO ezeket kivinni változóba ˇˇ
-    private float getMaxSelectedRatio() {
+    private void setMaxSelectedRatio() {
         float max = 0;
         for (int i = rowIndexMin; i <= rowIndexMax; i++) {
             TableRow row = getSelectedRowByIndex(i);
@@ -454,10 +469,10 @@ public class Application extends PApplet {
                 }
             }
         }
-        return max;
+        this.maxSelectedRatio = max;
     }
 
-    private float getMaxSelectedAbsolute() {
+    private void setMaxSelectedAbsolute() {
         float max = 0;
         for (int i = rowIndexMin; i <= rowIndexMax; i++) {
             TableRow row = getSelectedRowByIndex(i);
@@ -468,49 +483,17 @@ public class Application extends PApplet {
                 }
             }
         }
-        return max;
+        maxSelectedAbsolute = max;
     }
 
     private float getAffectedRatio(final TableRow row, final String countieName) {
-        final int lak = lakossag.getInt(countieName);
+        final int lak = population.getInt(countieName);
         final int cov = getAbsoluteAffected(row, countieName);
         return (float)cov / lak;
     }
 
     private int getAbsoluteAffected(final TableRow row, final String countieName) {
         return row.getInt(countieName);
-    }
-
-    private float getXAxisMin() {
-        return width / 2 + chartLeftMargin;
-    }
-
-    private float getXAxisMax() {
-        return getXAxisMin() + getXAxisWidth();
-    }
-
-    private float getXAxisWidth() {
-        return width / 2 - 2 * chartLeftMargin;
-    }
-
-    private float getYAxisHeight() {
-        return height / 2 - 2 * chartTopMargin;
-    }
-
-    private float getTopDiagramYAxisMax() {
-        return chartTopMargin;
-    }
-
-    private float getTopDiagramYAxisMin() {
-        return chartTopMargin + getYAxisHeight();
-    }
-
-    private float getBottomDiagramYAxisMax() {
-        return chartTopMargin * 3 + getYAxisHeight();
-    }
-
-    private float getBottomDiagramYAxisMin() {
-        return chartTopMargin * 3 + getYAxisHeight() * 2;
     }
 
     @Override
