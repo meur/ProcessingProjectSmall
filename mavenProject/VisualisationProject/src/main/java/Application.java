@@ -197,7 +197,7 @@ public class Application extends PApplet {
             final int absolute = getAbsoluteAffected(row, hoveredCountie);
             final float ratio = getAffectedRatio(row, hoveredCountie) * 100;
             final String fullName = Countie.valueOf(hoveredCountie).fullName;
-            final List<String> lines = new ArrayList<>();
+            final List<String> lines = new ArrayList<String>();
             lines.add(String.format("%.2f", ratio) + "%");
             lines.add(String.format("%,d", absolute));
             drawToolTip(50, 150, fullName, lines, false);
@@ -401,7 +401,7 @@ public class Application extends PApplet {
         if (mouseOverTopChart || mouseOverBottomChart) {
             int axisBottom = 0;
             int axisTop = 0;
-            final List<String> lines = new ArrayList<>();
+            final List<String> lines = new ArrayList<String>();
             final int rowIndex = (int)map(mouseX, xAxisMin, xAxisMax - axisThickness, rowIndexMin, rowIndexMax);
             final TableRow cRow = getSelectedRowByIndex(rowIndex);
             if (mouseOverTopChart) {
@@ -673,14 +673,14 @@ public class Application extends PApplet {
             return shortName != null ? shortName : fullName;
         }
 
-        Countie(final String fullName, final int r, final int g, final int b) {
+        private Countie(final String fullName, final int r, final int g, final int b) {
             this.fullName = fullName;
             this.r = r;
             this.g = g;
             this.b = b;
         }
 
-        Countie(final String fullName, final String shortName, final int r, final int g, final int b) {
+        private Countie(final String fullName, final String shortName, final int r, final int g, final int b) {
             this.fullName = fullName;
             this.shortName = shortName;
             this.r = r;
