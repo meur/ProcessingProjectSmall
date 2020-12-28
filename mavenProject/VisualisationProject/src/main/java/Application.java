@@ -42,7 +42,7 @@ public class Application extends PApplet {
 
     final int MAX_LIGHT = 240;
 
-    final int chartTopMargin = 30;
+    final int chartTopMargin = 40;
     final int chartLeftMargin = 50;
     final float axisThickness = 2;
     final Set<String> selectedCounties = new HashSet<String>();
@@ -60,8 +60,8 @@ public class Application extends PApplet {
 
     @Override
     public void settings() {
-        size(1356, 710);
-        smooth(8);
+        smooth();
+        fullScreen();
     }
 
     private void initGeomerative() {
@@ -134,7 +134,33 @@ public class Application extends PApplet {
         drawMapTooltip();
         drawSamples();
         drawDiagrams();
+        drawDiagramColorInfo();
         drawInfoAxis();
+    }
+
+    private void drawDiagramColorInfo() {
+        if (selectedCounties.size() > 0) {
+            final int count = selectedCounties.size();
+            final int minX = width / 2;
+            final int possibleWidth = minX;
+            final int step = possibleWidth / (count);
+            int index = 0;
+            final int y = height / 2 - mapTopMargin / 2;
+            for (String countieName : selectedCounties) {
+                final int x = minX + index * step + (int) ((float) width / (4 * count));
+                drawCircle(x, y, countieName);
+                fill(0f);
+
+                pushMatrix();
+                translate(x - 11, y + 11);
+                rotate(radians(45));
+                text(Countie.valueOf(countieName).getShortName(), 0, 0);
+                popMatrix();
+
+                line(0, 0, 150, 0);
+                index++;
+            }
+        }
     }
 
     private void drawMapTooltip() {
@@ -253,16 +279,19 @@ public class Application extends PApplet {
                 final int mappedY1 = (int)map(centroid.y, 0, hungary.height, mapTopMargin, mapTopMargin + mapHeight);
                 final int mappedY2 = (int)map(centroid.y, 0, hungary.height, mapTopMargin * 3 + mapHeight,
                         mapTopMargin * 3 + mapHeight * 2);
-
-                ellipseMode(RADIUS);
-                stroke(255f);
-                strokeWeight(2);
-                fill(colorOf(countieName));
-                ellipse(mappedX, mappedY1, 6, 6);
-                ellipse(mappedX, mappedY2, 6, 6);
-                noStroke();
+                drawCircle(mappedX, mappedY1, countieName);
+                drawCircle(mappedX, mappedY2, countieName);
             }
         }
+        noStroke();
+    }
+
+    private void drawCircle(final int x, final int y, final String countieName) {
+        ellipseMode(RADIUS);
+        stroke(255f);
+        strokeWeight(2);
+        fill(colorOf(countieName));
+        ellipse(x, y, 6, 6);
         noStroke();
     }
 
@@ -349,9 +378,9 @@ public class Application extends PApplet {
 
     private void drawInfoAxis() {
         mouseOverTopChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
-                && (mouseY > getTopDiagramYAxisMax() && mouseY < getTopDiagramYAxisMin() + chartTopMargin);
+                && (mouseY > getTopDiagramYAxisMax() && mouseY < getTopDiagramYAxisMin());
         mouseOverBottomChart = (mouseX > getXAxisMin() && mouseX < getXAxisMax())
-                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin() + chartTopMargin);
+                && (mouseY > getBottomDiagramYAxisMax() && mouseY < getBottomDiagramYAxisMin());
 
         if (mouseOverTopChart || mouseOverBottomChart) {
             int axisBottom = 0;
@@ -630,34 +659,47 @@ public class Application extends PApplet {
     }
 
     public enum Countie {
-        bk("Bács-Kiskun", 81,87,74),
+        bk("Bács-Kiskun", "BK",  81,87,74),
         baranya("Baranya", 68, 124, 105),
         bekes("Békés", 116, 196, 147),
-        baz("Borsod-Abaúj-Zemplén", 142, 140, 109),
+        baz("Borsod-Abaúj-Zemplén", "BAZ", 142, 140, 109),
         budapest("Budapest", 233, 215, 142),
-        csongrad("Csongrád-Csanád", 228, 191, 128),
+        csongrad("Csongrád-Csanád", "Csongrád",  228, 191, 128),
         fejer("Fejér", 233, 215, 142),
-        gyms("Györ-Moson-Sopron", 226, 151, 93),
-        hb("Hajdú-Bihar", 241, 150, 112),
+        gyms("Györ-Moson-Sopron", "GyMS", 226, 151, 93),
+        hb("Hajdú-Bihar", "HB", 241, 150, 112),
         heves("Heves", 225, 101, 82),
-        jnsz("Jász-Nagykun-Szolnok", 201, 74, 83),
-        ke("Komárom-Esztergom", 190, 81, 104),
+        jnsz("Jász-Nagykun-Szolnok", "JNSz", 201, 74, 83),
+        ke("Komárom-Esztergom", "KE", 190, 81, 104),
         nograd("Nógrád", 163, 73, 116),
         pest("Pest", 153, 55, 103),
         somogy("Somogy", 101, 56, 125),
-        szszb("Szabolcs-Szatmár-Bereg", 78, 36, 114),
+        szszb("Szabolcs-Szatmár-Bereg", "SzSzB", 78, 36, 114),
         tolna("Tolna", 145, 99, 182),
         vas("Vas", 226, 121, 163),
         veszprem("Veszprém", 86, 152, 196),
         zala("Zala", 124, 159, 176);
 
         public String fullName;
+        private String shortName;
         public int r;
         public int g;
         public int b;
 
+        public String getShortName() {
+            return shortName != null ? shortName : fullName;
+        }
+
         Countie(final String fullName, final int r, final int g, final int b) {
             this.fullName = fullName;
+            this.r = r;
+            this.g = g;
+            this.b = b;
+        }
+
+        Countie(final String fullName, final String shortName, final int r, final int g, final int b) {
+            this.fullName = fullName;
+            this.shortName = shortName;
             this.r = r;
             this.g = g;
             this.b = b;
