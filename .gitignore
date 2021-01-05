@@ -2,3 +2,4 @@ data.tsv
 mavenProject/VisualisationProject/target
 *.idea
 *.iml
+*.zip

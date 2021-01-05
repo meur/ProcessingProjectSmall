@@ -194,11 +194,11 @@ import java.util.Set;
         if (hoveredCountie != null) {
             final TableRow row = getSelectedRow(selectedMax);
             final int absolute = getAbsoluteAffected(row, hoveredCountie);
-            final float ratio = getAffectedRatio(row, hoveredCountie) * 100;
+            final float ratio = getAffectedRatio(row, hoveredCountie);
             final String fullName = Countie.valueOf(hoveredCountie).fullName;
             final List<String> lines = new ArrayList<String>();
-            lines.add(String.format("%.2f", ratio) + "%");
-            lines.add(String.format("%,d", absolute));
+            lines.add(getFormattedRatio(ratio));
+            lines.add(getFormattedAbsolute(absolute));
             drawToolTip(50, 150, fullName, lines, false);
         }
     }
@@ -240,8 +240,9 @@ import java.util.Set;
         RPoint p1 = new RPoint(mappedX, mappedY1);
         RPoint p2 = new RPoint(mappedX, mappedY2);
         for(int i = 0; i < grp.children[0].countChildren(); i++) {
-            if(grp.children[0].children[i].contains(p1) || grp.children[0].children[i].contains(p2)){
-                hoveredCountie = (grp.children[0].children[i].name);
+            final RShape currentChild = grp.children[0].children[i];
+            if(currentChild.contains(p1) || currentChild.contains(p2)){
+                hoveredCountie = (currentChild.name);
             }
         }
     }
@@ -273,10 +274,8 @@ import java.util.Set;
 
         for (int m = 1; m < row.getColumnCount() - 1; m++) {
             final String countieName = row.getColumnTitle(m);
-
-            final int currentPopulation = population.getInt(countieName);
-            final int absolute = row.getInt(countieName);
-            float ratio = ((float)absolute / currentPopulation);
+            final int absolute = getAbsoluteAffected(row, countieName);
+            float ratio = getAffectedRatio(row, countieName);
             final int colour0 = getColor(map(ratio, minRatio, maxRatio, 0, 1));
             final int colour1 = getColor(map(absolute, minAbs, maxAbs, 0, 1));
 
@@ -304,11 +303,12 @@ import java.util.Set;
     }
 
     private void drawCircle(final int x, final int y, final String countieName) {
+        final int r = 6;
         ellipseMode(RADIUS);
         stroke(255f);
         strokeWeight(2);
         fill(colorOf(countieName));
-        ellipse(x, y, 6, 6);
+        ellipse(x, y, r, r);
         noStroke();
     }
 
@@ -318,16 +318,16 @@ import java.util.Set;
         final int sampleHeight = 10;
         final int sampleWidth = 150;
         final int sampleTextYOffset = 16;
-        setGradient(mapLeftMargin, sampleTopMargin, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
-        setGradient(mapLeftMargin, sampleTopMargin + bottomMapTop, sampleWidth, sampleHeight, color(MAX_LIGHT), color(0), 2);
+        setGradient(mapLeftMargin, sampleTopMargin + mapTopMargin, sampleWidth, sampleHeight, X_AXIS);
+        setGradient(mapLeftMargin, sampleTopMargin + bottomMapTop, sampleWidth, sampleHeight, X_AXIS);
         textSize(12);
         fill(0);
         textAlign(LEFT);
-        text(String.format("%.2f", minRatio * 100) + "%", mapLeftMargin, sampleTopMargin + sampleHeight + sampleTextYOffset);
-        text(String.format("%,d", minAbs), mapLeftMargin, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(getFormattedRatio(minRatio), mapLeftMargin, sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(getFormattedAbsolute(minAbs), mapLeftMargin, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
         textAlign(RIGHT);
-        text(String.format("%.2f", maxRatio * 100) + "%", mapLeftMargin + sampleWidth, sampleTopMargin + sampleHeight + sampleTextYOffset);
-        text(String.format("%,d",maxAbs), mapLeftMargin + sampleWidth, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(getFormattedRatio(maxRatio), mapLeftMargin + sampleWidth, sampleTopMargin + sampleHeight + sampleTextYOffset);
+        text(getFormattedAbsolute(maxAbs), mapLeftMargin + sampleWidth, bottomMapTop + sampleTopMargin + sampleHeight + sampleTextYOffset);
     }
 
     private TableRow getSelectedRow(final float value) {
@@ -337,7 +337,7 @@ import java.util.Set;
     }
 
     private int getSelectedRowIndex(final float value) {
-        int rowIndex = (int)(value * (table.getRowCount() - 1));
+        int rowIndex = (int)map(value, 0, 1, 0, table.getRowCount());
         if (rowIndex < 2) {
             rowIndex = 2;
         }
@@ -407,19 +407,21 @@ import java.util.Set;
                 axisBottom = (int)topDiagramYAxisMin;
                 axisTop = (int)topDiagramYAxisMax;
                 for (String countie: selectedCounties) {
-                    lines.add(String.format("%s: %.2f", Countie.valueOf(countie).fullName, getAffectedRatio(cRow, countie) * 100));
+                    lines.add(String.format("%s: ", Countie.valueOf(countie).fullName) + getFormattedRatio(getAffectedRatio(cRow, countie)));
                 }
             }
             else if (mouseOverBottomChart) {
                 axisBottom = (int)bottomDiagramYAxisMin;
                 axisTop = (int)bottomDiagramYAxisMax;
                 for (String countie: selectedCounties) {
-                    lines.add(String.format("%s: %,d", Countie.valueOf(countie).fullName, getAbsoluteAffected(cRow, countie)));
+                    lines.add(String.format("%s: ", Countie.valueOf(countie).fullName) + getFormattedAbsolute(getAbsoluteAffected(cRow, countie)));
                 }
             }
+
             strokeWeight(1);
             stroke(0f);
             line(mouseX, axisBottom, mouseX, axisTop);
+
             drawToolTip(50, 200, cRow.getString(0), lines, true);
             noStroke();
         }
@@ -432,8 +434,8 @@ import java.util.Set;
         final int signRightMargin = 5;
         textAlign(RIGHT);
         for (int i = 0; i <= num; i++) {
-            text(String.format("%.2f", maxSelectedRatio * (num - i) / num * 100) + "%", xAxisMin - signRightMargin, topDiagramYAxisMax + i * step);
-            text(String.format("%,.0f", maxSelectedAbsolute * (num - i) / num), xAxisMin - signRightMargin, bottomDiagramYAxisMax + i * step);
+            text(getFormattedRatio(maxSelectedRatio * (num - i) / num), xAxisMin - signRightMargin, topDiagramYAxisMax + i * step);
+            text(getFormattedAbsolute((int)(maxSelectedAbsolute * (num - i) / num)), xAxisMin - signRightMargin, bottomDiagramYAxisMax + i * step);
         }
 
         rectMode(CORNER);
@@ -457,15 +459,21 @@ import java.util.Set;
         }
     }
 
+    private String getFormattedRatio(final float ratio) {
+        return String.format("%.2f", ratio * 100) + "%";
+    }
+
+    private String getFormattedAbsolute(final int absolute) {
+        return String.format("%,d", absolute);
+    }
+
     private void setMaxSelectedRatio() {
         float max = 0;
         for (int i = rowIndexMin; i <= rowIndexMax; i++) {
             TableRow row = getSelectedRowByIndex(i);
             for (String name: selectedCounties) {
                 final float currRatio = getAffectedRatio(row, name);
-                if (currRatio > max) {
-                    max = currRatio;
-                }
+                max = max(currRatio, max);
             }
         }
         this.maxSelectedRatio = max;
@@ -477,18 +485,18 @@ import java.util.Set;
             TableRow row = getSelectedRowByIndex(i);
             for (String name: selectedCounties) {
                 final float currAbs = getAbsoluteAffected(row, name);
-                if (currAbs > max) {
-                    max = currAbs;
-                }
+                max = max(currAbs, max);
             }
         }
         maxSelectedAbsolute = max;
     }
 
     private float getAffectedRatio(final TableRow row, final String countieName) {
-        final int lak = population.getInt(countieName);
-        final int cov = getAbsoluteAffected(row, countieName);
-        return (float)cov / lak;
+        return (float)getAbsoluteAffected(row, countieName) / getPopulation(countieName);
+    }
+
+    private int getPopulation(final String countieName) {
+        return getAbsoluteAffected(population, countieName);
     }
 
     private int getAbsoluteAffected(final TableRow row, final String countieName) {
@@ -569,12 +577,12 @@ import java.util.Set;
             selectedMin = min(selectedMin + value, selectedMax);
         }
         else {
-            selectedMin = (selectedMin + value > 0) ? (selectedMin + value) : 0;
+            selectedMin = max(selectedMin + value, 0);
         }
     }
     private void incrementMax(final float value) {
         if (value > 0) {
-            selectedMax = (selectedMax + value < 1) ? (selectedMax + value) : 1;
+            selectedMax = min(selectedMax + value, 1);
         }
         else {
             selectedMax = max(selectedMax + value, selectedMin);
@@ -603,13 +611,13 @@ import java.util.Set;
     }
 
     private void shapeBottom(final PShape countie) {
-        shape(countie, mapLeftMargin, mapHeight + 3 * mapTopMargin, mapWidth, mapHeight);
+        shape(countie, mapLeftMargin, bottomMapTop, mapWidth, mapHeight);
     }
 
     // https://processing.org/examples/lineargradient.html
-    private void setGradient(int x, int y, float w, float h, int c1, int c2, int axis ) {
-        int Y_AXIS = 1;
-        int X_AXIS = 2;
+    final int Y_AXIS = 1;
+    final int X_AXIS = 2;
+    private void setGradient(int x, int y, float w, float h, int axis ) {
         noFill();
         strokeWeight(1);
 
