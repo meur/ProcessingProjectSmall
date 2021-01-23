@@ -21,10 +21,10 @@ public class Application2 extends PApplet {
     private List<CountryInfo> infoList = new ArrayList<CountryInfo>();
 
     private String focusedProperty = "co2";
-
-    private Country focusedCountry = Country.HUN;
+    private int focusedIndex = 3;
+    private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.GRL, Country.NER,
+            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.GRL, Country.NER,
             Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
 
     @Override
@@ -86,6 +86,15 @@ public class Application2 extends PApplet {
     @Override
     public void draw() {
         background(255f);
+
+        drawMap();
+        drawBarChart();
+        highlightSelectedCountries();
+        setFocusedCountry();
+        drawDiagramGrid();
+    }
+
+    private void drawDiagramGrid() {
         final String selectedCountry = focusedCountry.fullName;
 
         try {
@@ -107,10 +116,6 @@ public class Application2 extends PApplet {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        drawMap();
-        drawBarChart();
-        highlightSelectedCountries();
     }
 
     private DiagramData getDiagramData(final String countryName, final String fieldName)
@@ -188,7 +193,8 @@ public class Application2 extends PApplet {
             rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
             textAlign(RIGHT);
             fill(0f);
-            text(data.country.fullName, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
+            final String label = (i == focusedIndex ? "* ": "").concat(data.country.fullName);
+            text(label, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
         }
     }
 
@@ -273,6 +279,42 @@ public class Application2 extends PApplet {
                 //line(positions[i - 1][0], positions[i - 1][2], positions[i][0], positions[i][2]);
             }
         //}
+    }
+
+    @Override
+    public void keyPressed() {
+        switch(key) {
+            case 'w':
+                if (focusedIndex > 0) {
+                    focusedIndex--;
+                }
+                break;
+            case 's':
+                if (focusedIndex < selectedCountries.size() - 1) {
+                    focusedIndex++;
+                }
+                break;
+            case '-':
+                if (selectedCountries.size() > 1) {
+                    if (focusedIndex == selectedCountries.size() - 1) {
+                        focusedIndex--;
+                    }
+                    selectedCountries.remove(focusedCountry);
+                }
+                break;
+            case '+':
+                addNewFocusedCountry();
+                break;
+        }
+        redraw();
+    }
+
+    private void setFocusedCountry() {
+        focusedCountry = barChartDataList.get(focusedIndex).country;
+    }
+
+    private void addNewFocusedCountry() {
+        //todo
     }
 
     private static double safeDouble(final double input) {
