@@ -5,12 +5,15 @@ import processing.data.TableRow;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 
 public class Application2 extends PApplet {
 
     private final String MAP_NAME = "world.svg";
+
+    private static final int LAST_YEAR = 2018;
 
     private Table data;
     private PShape world;
@@ -20,8 +23,8 @@ public class Application2 extends PApplet {
 
     private Country focusedCountry = Country.HUN;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            focusedCountry, Country.DEU, Country.JPN, Country.ROU,
-            Country.USA, Country.RUS, Country.CHN, Country.IND);
+            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN,
+            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
 
     @Override
     public void settings() {
@@ -82,7 +85,7 @@ public class Application2 extends PApplet {
     @Override
     public void draw() {
         background(255f);
-        final String selectedCountry = "Pakistan";
+        final String selectedCountry = focusedCountry.fullName;
 
         try {
             drawDiagram(1, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
@@ -100,9 +103,7 @@ public class Application2 extends PApplet {
             //drawDiagram(3, 3, getDiagramData(selectedCountry, "nitrous_oxide"));
 //            drawDiagram(3, 2, getDiagramData(selectedCountry, "methane_per_capita"));
 //            drawDiagram(3, 3, getDiagramData(selectedCountry, "methane"));
-        } catch (NoSuchFieldException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -157,12 +158,13 @@ public class Application2 extends PApplet {
         super.shape(shape, mapLeftMargin, mapTopMargin, mapWidth, mapHeight);
     }
 
-    private final int barChartRightMargin = 50;
+    private final int barChartRightMargin = 20;
     private int barChartLeftMargin;
     private int barChartTopMargin;
     private int barChartHeight;
     private int barChartWidth;
     private final int barChartBottomMargin = 50;
+    private final int barHeight = 20;
 
     private void drawBarChart() {
         barChartLeftMargin = mapLeftMargin + mapWidth + mapRightMargin;
@@ -174,9 +176,35 @@ public class Application2 extends PApplet {
         rect(barChartLeftMargin, barChartTopMargin, AXIS_THICKNESS, barChartHeight);
         rect(barChartLeftMargin, height - barChartBottomMargin, barChartWidth, AXIS_THICKNESS);
 
-        for (Country country: selectedCountries) {
-            // todo
+        final List<BarChartData> barChartDataList = getBarChartDataList();
+        Collections.sort(barChartDataList);
+        final int barsCount = barChartDataList.size();
+        final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
+        final float maxValue = barChartDataList.get(barsCount - 1).value.floatValue();
+        for (int i = 0; i < barsCount; i++) {
+            final BarChartData data = barChartDataList.get(i);
+            fill(0f);
+            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 0, barChartWidth);
+            final int barTop = (int)(barChartTopMargin + (0.5 + i) * spaceBetweenBars + i * barHeight);
+            rect(barChartLeftMargin, barTop, barWidth, barHeight);
         }
+    }
+
+    private List<BarChartData> getBarChartDataList() {
+        final List<BarChartData> barChartDataList = new ArrayList<BarChartData>();
+        try {
+            final Field selectedField = CountryInfo.class.getField(focusedProperty);
+            for (Country country: selectedCountries) {
+                for (CountryInfo countryInfo : infoList) {
+                    if (countryInfo.year == LAST_YEAR && countryInfo.country.equals(country.fullName)) {
+                        barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return barChartDataList;
     }
 
     private final int MARGIN_TOP = 10;
@@ -246,6 +274,21 @@ public class Application2 extends PApplet {
         }
         else {
             return (float)input;
+        }
+    }
+
+    private static class BarChartData implements Comparable<BarChartData> {
+        public Country country;
+        public Double value;
+
+        @Override
+        public int compareTo(BarChartData o) {
+            return this.value.compareTo(o.value);
+        }
+
+        public BarChartData(final Country country, final double value) {
+            this.country = country;
+            this.value = value;
         }
     }
 

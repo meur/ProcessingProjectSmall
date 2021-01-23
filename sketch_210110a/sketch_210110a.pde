@@ -5,13 +5,25 @@ import processing.data.TableRow;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.LinkedList;
 import java.util.List;
 
     private final String MAP_NAME = "world.svg";
 
+    private static final int LAST_YEAR = 2018;
+
     private Table data;
     private PShape world;
     private List<CountryInfo> infoList = new ArrayList<CountryInfo>();
+
+    private String focusedProperty = "co2";
+
+    private Country focusedCountry = Country.HUN;
+    private final EnumSet<Country> selectedCountries = EnumSet.of(
+            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN,
+            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
 
     @Override
     public void settings() {
@@ -21,7 +33,7 @@ import java.util.List;
 
     @Override
     public void setup() {
-        //world = loadShape(MAP_NAME);
+        world = loadShape(MAP_NAME);
         data = loadTable("owid-co2-data.csv", "header");
         for (TableRow row: data.rows()) {
             final CountryInfo countryInfo = new CountryInfo(
@@ -72,25 +84,140 @@ import java.util.List;
     @Override
     public void draw() {
         background(255f);
+        final String selectedCountry = focusedCountry.fullName;
 
-        drawDiagram(1, 3, "Szöveg");
-        drawDiagram(2, 3, "Szöveg");
-        drawDiagram(3, 3, "Szöveg");
-        drawDiagram(3, 1, "Szöveg");
+        try {
+            drawDiagram(1, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
+            drawDiagram(1, 2, getDiagramData(selectedCountry, "energy_per_capita"));
+            //drawDiagram(1, 3, getDiagramData(selectedCountry, "population"));
+
+            drawDiagram(2, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
+            //drawDiagram(2, 3, getDiagramData(selectedCountry, "gdp"));
+            drawDiagram(2, 2, getDiagramData(selectedCountry, "energy_per_gdp"));
+
+            drawDiagram(4, 2, getDiagramData(selectedCountry, "co2_per_capita"));
+            //drawDiagram(4, 3, getDiagramData(selectedCountry, "co2"));
+
+            drawDiagram(3, 2, getDiagramData(selectedCountry, "nitrous_oxide_per_capita"));
+            //drawDiagram(3, 3, getDiagramData(selectedCountry, "nitrous_oxide"));
+//            drawDiagram(3, 2, getDiagramData(selectedCountry, "methane_per_capita"));
+//            drawDiagram(3, 3, getDiagramData(selectedCountry, "methane"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        drawMap();
+
+        drawBarChart();
     }
 
-    private void alma(final String fieldName) throws NoSuchFieldException {
-        final Field selectedField = CountryInfo.class.getField("isoCode");
+    private DiagramData getDiagramData(final String countryName, final String fieldName)
+            throws NoSuchFieldException, IllegalAccessException {
+        final Field selectedField = CountryInfo.class.getField(fieldName);
+        final String title = countryName + " - " + fieldName;
+        final DiagramData data = new DiagramData(title);
+
+        for (CountryInfo countryInfo: infoList) {
+            if (countryInfo.year >= MIN_YEAR && countryInfo.country.equals(countryName)) {
+                final DiagramDataElement newElement = new DiagramDataElement();
+                newElement.x = countryInfo.year;
+                newElement.y = selectedField.getDouble(countryInfo);
+
+                data.elements.add(newElement);
+            }
+        }
+        return data;
     }
 
-    final int MARGIN_TOP = 10;
-    final int MARGIN_BOTTOM = 50;
-    final int MARGIN_LEFT = 30;
-    final int MARGIN_RIGHT = 5;
-    final int AXIS_THICKNESS = 2;
-    final float DIAGRAM_RELATIVE_SIZE = (float)1/3;
+    private int mapWidth;
+    private int mapHeight;
+    private int mapTopMargin;
+    private final int mapLeftMargin = 0;
+    private final int mapRightMargin = 50;
 
-    private void drawDiagram(final int noX, final int noY, final String title) {
+    private void drawMap() {
+        world.disableStyle();
+        noFill();
+        stroke(1);
+
+        mapHeight = height / 2;
+        mapTopMargin = height - mapHeight;
+        final float ratio = mapHeight / world.height;
+        mapWidth = (int)(world.width * ratio);
+        shapeMap(world);
+
+        for (Country country: selectedCountries) {
+            final PShape currentShape = world.getChild(country.shortCode);
+            fill(0f);
+            shapeMap(currentShape);
+        }
+    }
+
+    public void shapeMap(final PShape shape) {
+        super.shape(shape, mapLeftMargin, mapTopMargin, mapWidth, mapHeight);
+    }
+
+    private final int barChartRightMargin = 20;
+    private int barChartLeftMargin;
+    private int barChartTopMargin;
+    private int barChartHeight;
+    private int barChartWidth;
+    private final int barChartBottomMargin = 50;
+    private final int barHeight = 20;
+
+    private void drawBarChart() {
+        barChartLeftMargin = mapLeftMargin + mapWidth + mapRightMargin;
+        barChartTopMargin = mapTopMargin + 40;
+        barChartHeight = height - barChartTopMargin - barChartBottomMargin;
+        barChartWidth = width - barChartLeftMargin - barChartRightMargin;
+
+        fill(0f);
+        rect(barChartLeftMargin, barChartTopMargin, AXIS_THICKNESS, barChartHeight);
+        rect(barChartLeftMargin, height - barChartBottomMargin, barChartWidth, AXIS_THICKNESS);
+
+        final List<BarChartData> barChartDataList = getBarChartDataList();
+        Collections.sort(barChartDataList);
+        final int barsCount = barChartDataList.size();
+        final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
+        final float maxValue = barChartDataList.get(barsCount - 1).value.floatValue();
+        for (int i = 0; i < barsCount; i++) {
+            final BarChartData data = barChartDataList.get(i);
+            fill(0f);
+            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 0, barChartWidth);
+            final int barTop = (int)(barChartTopMargin + (0.5 + i) * spaceBetweenBars + i * barHeight);
+            rect(barChartLeftMargin, barTop, barWidth, barHeight);
+        }
+    }
+
+    private List<BarChartData> getBarChartDataList() {
+        final List<BarChartData> barChartDataList = new LinkedList<BarChartData>();
+        try {
+            final Field selectedField = CountryInfo.class.getField(focusedProperty);
+            for (Country country: selectedCountries) {
+                for (CountryInfo countryInfo : infoList) {
+                    if (countryInfo.year == LAST_YEAR && countryInfo.country.equals(country.fullName)) {
+                        barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return barChartDataList;
+    }
+
+    private final int MARGIN_TOP = 10;
+    private final int MARGIN_BOTTOM = 50;
+    private final int MARGIN_LEFT = 30;
+    private final int MARGIN_RIGHT = 5;
+    private final int AXIS_THICKNESS = 2;
+    private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
+
+    private final int MIN_YEAR = 1950;
+
+    private void drawDiagram(final int noX, final int noY, final DiagramData data) {
+
+        final String title = data.title;
 
         final float relativeX = (noX - 1) * DIAGRAM_RELATIVE_SIZE;
         final float relativeY = (noY - 1) * DIAGRAM_RELATIVE_SIZE;
@@ -111,49 +238,82 @@ import java.util.List;
         textAlign(CENTER);
         textSize(12);
         text(title, xAxisCenter, yAxisBottom + MARGIN_BOTTOM - 5);
+
+        //for (String countieName : selectedCounties) {
+            final int elementCount = data.elements.size();
+            int[][] positions = new int[elementCount][2];  // x, y1, y2
+            for (int i = 0; i < elementCount; i++) {
+                float elemValue = safeFloat(data.elements.get(i).y);
+                //final TableRow currentRow = getSelectedRowByIndex(i);
+                positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
+                positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
+                //positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbsolute, bottomDiagramYAxisMin, bottomDiagramYAxisMax);
+            }
+            //stroke(colorOf(countieName));
+            stroke(127f);
+            for (int i = 1; i < elementCount; i++) {
+                line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
+                //line(positions[i - 1][0], positions[i - 1][2], positions[i][0], positions[i][2]);
+            }
+        //}
     }
 
-//    private void drawDiagrams(final float relativeX) {
-//        fill(0f);
-//        rectMode(CORNER);
-//
-//        rect(xAxisMin, topDiagramYAxisMax, axisThickness, yAxisHeight);
-//        rect(xAxisMin, topDiagramYAxisMin, xAxisWidth, axisThickness);
-//
-//        rect(xAxisMin, bottomDiagramYAxisMax, axisThickness, yAxisHeight);
-//        rect(xAxisMin, bottomDiagramYAxisMin, xAxisWidth, axisThickness);
-//
-//        signAxes();
-//
-//        strokeWeight(2);
-//        final int selectedRowNum = rowIndexMax - rowIndexMin + 1;
-//        if (selectedRowNum > 1) {
-//            for (String countieName : selectedCounties) {
-//                int[][] positions = new int[selectedRowNum][3];  // x, y1, y2
-//                for (int i = rowIndexMin; i <= rowIndexMax; i++) {
-//                    final TableRow currentRow = getSelectedRowByIndex(i);
-//                    positions[i - rowIndexMin][0] = (int) map(i, rowIndexMin, rowIndexMax, xAxisMin, xAxisMax);
-//                    positions[i - rowIndexMin][1] = (int) map(getAffectedRatio(currentRow, countieName), 0, maxSelectedRatio, topDiagramYAxisMin, topDiagramYAxisMax);
-//                    positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbsolute, bottomDiagramYAxisMin, bottomDiagramYAxisMax);
-//                }
-//                stroke(colorOf(countieName));
-//                for (int i = 1; i < selectedRowNum; i++) {
-//                    line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
-//                    line(positions[i - 1][0], positions[i - 1][2], positions[i][0], positions[i][2]);
-//                }
-//            }
-//        }
-//        noStroke();
-//    }
+    private static double safeDouble(final double input) {
+        if (Double.isNaN(input)) {
+            return 0f;
+        }
+        else {
+            return input;
+        }
+    }
+
+    private static float safeFloat(final double input) {
+        if (Double.isNaN(input)) {
+            return 0f;
+        }
+        else {
+            return (float)input;
+        }
+    }
+
+    private static class BarChartData implements Comparable<BarChartData> {
+        public Country country;
+        public Double value;
+
+        @Override
+        public int compareTo(BarChartData o) {
+            return this.value.compareTo(o.value);
+        }
+
+        public BarChartData(final Country country, final double value) {
+            this.country = country;
+            this.value = value;
+        }
+    }
 
     private static class DiagramData {
         public String title;
         public final List<DiagramDataElement> elements = new ArrayList<DiagramDataElement>();
+
+        public DiagramData(String title) {
+            this.title = title;
+        }
+
+        public float getMaxValue() {
+            double max = safeDouble(elements.get(0).y);
+            for (DiagramDataElement element: elements) {
+                final double value = safeDouble(element.y);
+                if (value > max) {
+                    max = value;
+                }
+            }
+            return (float)max;
+        }
     }
 
     private static class DiagramDataElement {
         public int x;
-        public int y;
+        public double y;
     }
 
     private static class CountryInfo {
@@ -237,4 +397,208 @@ import java.util.List;
             this.population = population;
             this.gdp = gdp;
         }
+    }
+
+    private static enum Country {
+        ABW("AW", "Aruba"),
+        AFG("AF", "Afghanistan"),
+        AGO("AO", "Angola"),
+        AIA("AI", "Anguilla"),
+        ALB("AL", "Albania"),
+        AND("AD", "Andorra"),
+        ANT("NL", "Netherlands Antilles"),
+        ARE("AE", "United Arab Emirates"),
+        ARG("AR", "Argentina"),
+        ARM("AM", "Armenia"),
+        ATG("AG", "Antigua and Barbuda"),
+        AUS("AU", "Australia"),
+        AUT("AT", "Austria"),
+        AZE("AZ", "Azerbaijan"),
+        BDI("BI", "Burundi"),
+        BEL("BE", "Belgium"),
+        BEN("BJ", "Benin"),
+        BFA("BF", "Burkina Faso"),
+        BGD("BD", "Bangladesh"),
+        BGR("BG", "Bulgaria"),
+        BHS("BS", "Bahamas"),
+        BIH("BA", "Bosnia and Herzegovina"),
+        BLR("BY", "Belarus"),
+        BLZ("BZ", "Belize"),
+        BMU("BM", "Bermuda"),
+        BOL("BO", "Bolivia"),
+        BRA("BR", "Brazil"),
+        BRB("BB", "Barbados"),
+        BRN("BN", "Brunei"),
+        BTN("BT", "Bhutan"),
+        BWA("BW", "Botswana"),
+        CAF("CF", "Central African Republic"),
+        CAN("CA", "Canada"),
+        CHE("CH", "Switzerland"),
+        CHL("CL", "Chile"),
+        CHN("CN", "China"),
+        CIV("CI", "Cote d'Ivoire"),
+        CMR("CM", "Cameroon"),
+        COD("CD", "Democratic Republic of Congo"),
+        COG("CG", "Congo"),
+        COL("CO", "Colombia"),
+        COM("KM", "Comoros"),
+        CPV("CV", "Cape Verde"),
+        CRI("CR", "Costa Rica"),
+        CUB("CU", "Cuba"),
+        CUW("CW", "Curacao"),
+        CYM("KY", "Cayman Islands"),
+        CYP("CY", "Cyprus"),
+        CZE("CZ", "Czechia"),
+        DEU("DE", "Germany"),
+        DJI("DJ", "Djibouti"),
+        DMA("DM", "Dominica"),
+        DNK("DK", "Denmark"),
+        DZA("DZ", "Algeria"),
+        ECU("EC", "Ecuador"),
+        EGY("EG", "Egypt"),
+        ERI("ER", "Eritrea"),
+        ESP("ES", "Spain"),
+        EST("EE", "Estonia"),
+        ETH("ET", "Ethiopia"),
+        FIN("FI", "Finland"),
+        FJI("FJ", "Fiji"),
+        FLK("FK", "Falkland Islands"),
+        FRA("FR", "France"),
+        FRO("FO", "Faeroe Islands"),
+        GAB("GA", "Gabon"),
+        GBR("GB", "United Kingdom"),
+        GEO("GE", "Georgia"),
+        GHA("GH", "Ghana"),
+        GIN("GN", "Guinea"),
+        GLP("GP", "Guadeloupe"),
+        GMB("GM", "Gambia"),
+        GNQ("GQ", "Equatorial Guinea"),
+        GRC("GR", "Greece"),
+        GRD("GD", "Grenada"),
+        GRL("GL", "Greenland"),
+        GTM("GT", "Guatemala"),
+        GUF("GF", "French Guiana"),
+        GUY("GY", "Guyana"),
+        HKG("HK", "Hong Kong"),
+        HND("HN", "Honduras"),
+        HRV("HR", "Croatia"),
+        HTI("HT", "Haiti"),
+        HUN("HU", "Hungary"),
+        IDN("ID", "Indonesia"),
+        IND("IN", "India"),
+        IRL("IE", "Ireland"),
+        ISL("IS", "Iceland"),
+        ISR("IL", "Israel"),
+        ITA("IT", "Italy"),
+        JAM("JM", "Jamaica"),
+        JOR("JO", "Jordan"),
+        JPN("JP", "Japan"),
+        KAZ("KZ", "Kazakhstan"),
+        KEN("KE", "Kenya"),
+        KGZ("KG", "Kyrgyzstan"),
+        KHM("KH", "Cambodia"),
+        KNA("KN", "Saint Kitts and Nevis"),
+        KOR("KR", "South Korea"),
+        KWT("KW", "Kuwait"),
+        LBN("LB", "Lebanon"),
+        LBR("LR", "Liberia"),
+        LBY("LY", "Libya"),
+        LCA("LC", "Saint Lucia"),
+        LIE("LI", "Liechtenstein"),
+        LKA("LK", "Sri Lanka"),
+        LSO("LS", "Lesotho"),
+        LTU("LT", "Lithuania"),
+        LUX("LU", "Luxembourg"),
+        LVA("LV", "Latvia"),
+        MAR("MA", "Morocco"),
+        MDA("MD", "Moldova"),
+        MDG("MG", "Madagascar"),
+        MEX("MX", "Mexico"),
+        MLI("ML", "Mali"),
+        MMR("MM", "Myanmar"),
+        MNE("ME", "Montenegro"),
+        MNG("MN", "Mongolia"),
+        MOZ("MZ", "Mozambique"),
+        MRT("MR", "Mauritania"),
+        MSR("MS", "Montserrat"),
+        MTQ("MQ", "Martinique"),
+        MUS("MU", "Mauritius"),
+        NAM("NA", "Namibia"),
+        NCL("NC", "New Caledonia"),
+        NER("NE", "Niger"),
+        NIC("NI", "Nicaragua"),
+        NLD("NL", "Netherlands"),
+        NOR("NO", "Norway"),
+        NPL("NP", "Nepal"),
+        NRU("NR", "Nauru"),
+        NZL("NZ", "New Zealand"),
+        OMN("OM", "Oman"),
+        PAK("PK", "Pakistan"),
+        PAN("PA", "Panama"),
+        PER("PE", "Peru"),
+        PHL("PH", "Philippines"),
+        PNG("PG", "Papua New Guinea"),
+        POL("PL", "Poland"),
+        PRI("PR", "Puerto Rico"),
+        PRK("KP", "North Korea"),
+        PRT("PT", "Portugal"),
+        PRY("PY", "Paraguay"),
+        PSE("PS", "Palestine"),
+        PYF("PF", "French Polynesia"),
+        QAT("QA", "Qatar"),
+        ROU("RO", "Romania"),
+        RUS("RU", "Russia"),
+        RWA("RW", "Rwanda"),
+        SAU("SA", "Saudi Arabia"),
+        SDN("SD", "Sudan"),
+        SEN("SN", "Senegal"),
+        SGP("SG", "Singapore"),
+        SLB("SB", "Solomon Islands"),
+        SLE("SL", "Sierra Leone"),
+        SLV("SV", "El Salvador"),
+        SOM("SO", "Somalia"),
+        SRB("RS", "Serbia"),
+        SSD("SS", "South Sudan"),
+        STP("ST", "Sao Tome and Principe"),
+        SUR("SR", "Suriname"),
+        SVK("SK", "Slovakia"),
+        SVN("SI", "Slovenia"),
+        SWE("SE", "Sweden"),
+        SXM("SX", "Sint Maarten (Dutch part)"),
+        SYC("SC", "Seychelles"),
+        SYR("SY", "Syria"),
+        TCA("TC", "Turks and Caicos Islands"),
+        TCD("TD", "Chad"),
+        TGO("TG", "Togo"),
+        THA("TH", "Thailand"),
+        TJK("TJ", "Tajikistan"),
+        TKM("TM", "Turkmenistan"),
+        TLS("TL", "Timor"),
+        TON("TO", "Tonga"),
+        TTO("TT", "Trinidad and Tobago"),
+        TUN("TN", "Tunisia"),
+        TUR("TR", "Turkey"),
+        TWN("TW", "Taiwan"),
+        TZA("TZ", "Tanzania"),
+        UGA("UG", "Uganda"),
+        UKR("UA", "Ukraine"),
+        URY("UY", "Uruguay"),
+        USA("US", "United States"),
+        UZB("UZ", "Uzbekistan"),
+        VEN("VE", "Venezuela"),
+        VGB("VG", "British Virgin Islands"),
+        VNM("VN", "Vietnam"),
+        VUT("VU", "Vanuatu"),
+        YEM("YE", "Yemen"),
+        ZAF("ZA", "South Africa"),
+        ZMB("ZM", "Zambia"),
+        ZWE("ZW", "Zimbabwe");
+
+        Country(final String shortCode, final String fullName) {
+            this.shortCode = shortCode;
+            this.fullName = fullName;
+        }
+
+        String shortCode;
+        String fullName;
     }
