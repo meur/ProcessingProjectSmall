@@ -13,8 +13,9 @@ public class Application2 extends PApplet {
 
     private final String MAP_NAME = "world.svg";
 
-    private static final int LAST_YEAR = 2018;
-    private int selectedYear = LAST_YEAR;
+    private static final int MIN_YEAR = 1990;
+    private static final int MAX_YEAR = 2018;
+    private int selectedYear = MAX_YEAR;
 
     private Table data;
     private PShape world;
@@ -164,7 +165,7 @@ public class Application2 extends PApplet {
     private int barChartHeight;
     private int barChartWidth;
     private final int barChartBottomMargin = 50;
-    private final int barHeight = 30;
+    private final int barHeight = 20;
     List<BarChartData> barChartDataList;
 
     private void drawBarChart() {
@@ -182,7 +183,7 @@ public class Application2 extends PApplet {
         Collections.sort(barChartDataList);
         final int barsCount = barChartDataList.size();
         final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
-        final float maxValue = barChartDataList.get(barsCount - 1).value.floatValue();
+        float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
             final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 2, barChartWidth) - AXIS_THICKNESS;
@@ -196,6 +197,8 @@ public class Application2 extends PApplet {
             final String label = (i == focusedIndex ? "* ": "").concat(data.country.fullName);
             text(label, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
         }
+        textAlign(CENTER);
+        text(selectedYear, barChartLeftMargin + barChartWidth / 2, height - barChartBottomMargin * (float)2/3);
     }
 
     private void highlightSelectedCountries() {
@@ -216,10 +219,16 @@ public class Application2 extends PApplet {
         try {
             final Field selectedField = CountryInfo.class.getField(focusedProperty);
             for (Country country: selectedCountries) {
+                boolean added = false;
                 for (CountryInfo countryInfo : infoList) {
                     if (countryInfo.year == selectedYear && countryInfo.country.equals(country.fullName)) {
                         barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
+                        added = true;
+                        break;
                     }
+                }
+                if (!added) {
+                    barChartDataList.add(new BarChartData(country, 0));
                 }
             }
         } catch (Exception e) {
@@ -234,8 +243,6 @@ public class Application2 extends PApplet {
     private final int MARGIN_RIGHT = 5;
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
-
-    private final int MIN_YEAR = 1950;
 
     private void drawDiagram(final int noX, final int noY, final DiagramData data) {
 
@@ -303,7 +310,21 @@ public class Application2 extends PApplet {
                 }
                 break;
             case '+':
-                addNewSelectedCountry();
+                if (selectedCountries.size() < 16) {
+                    addNewSelectedCountry();
+                }
+                break;
+            case 'e':
+                if (selectedYear < MAX_YEAR) {
+                    selectedYear++;
+                    setFocusedIndex(focusedCountry);
+                }
+                break;
+            case 'q':
+                if (selectedYear > MIN_YEAR) {
+                    selectedYear--;
+                    setFocusedIndex(focusedCountry);
+                }
                 break;
         }
         redraw();
