@@ -14,6 +14,7 @@ public class Application2 extends PApplet {
     private final String MAP_NAME = "world.svg";
 
     private static final int LAST_YEAR = 2018;
+    private int selectedYear = LAST_YEAR;
 
     private Table data;
     private PShape world;
@@ -23,7 +24,7 @@ public class Application2 extends PApplet {
 
     private Country focusedCountry = Country.HUN;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN,
+            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.GRL, Country.NER,
             Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
 
     @Override
@@ -108,8 +109,8 @@ public class Application2 extends PApplet {
         }
 
         drawMap();
-
         drawBarChart();
+        highlightSelectedCountries();
     }
 
     private DiagramData getDiagramData(final String countryName, final String fieldName)
@@ -146,12 +147,6 @@ public class Application2 extends PApplet {
         final float ratio = mapHeight / world.height;
         mapWidth = (int)(world.width * ratio);
         shapeMap(world);
-
-        for (Country country: selectedCountries) {
-            final PShape currentShape = world.getChild(country.shortCode);
-            fill(0f);
-            shapeMap(currentShape);
-        }
     }
 
     public void shapeMap(final PShape shape) {
@@ -164,7 +159,8 @@ public class Application2 extends PApplet {
     private int barChartHeight;
     private int barChartWidth;
     private final int barChartBottomMargin = 50;
-    private final int barHeight = 20;
+    private final int barHeight = 30;
+    List<BarChartData> barChartDataList;
 
     private void drawBarChart() {
         barChartLeftMargin = mapLeftMargin + mapWidth + mapRightMargin;
@@ -172,21 +168,40 @@ public class Application2 extends PApplet {
         barChartHeight = height - barChartTopMargin - barChartBottomMargin;
         barChartWidth = width - barChartLeftMargin - barChartRightMargin;
 
+        noStroke();
         fill(0f);
         rect(barChartLeftMargin, barChartTopMargin, AXIS_THICKNESS, barChartHeight);
         rect(barChartLeftMargin, height - barChartBottomMargin, barChartWidth, AXIS_THICKNESS);
 
-        final List<BarChartData> barChartDataList = getBarChartDataList();
+        barChartDataList = getBarChartDataList();
         Collections.sort(barChartDataList);
         final int barsCount = barChartDataList.size();
         final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
         final float maxValue = barChartDataList.get(barsCount - 1).value.floatValue();
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
+            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 2, barChartWidth) - AXIS_THICKNESS;
+            final int barTop = (int)(barChartTopMargin + ((0.5f + i) * spaceBetweenBars) + (i * barHeight));
+            final int color = lerpColor(color(198, 255, 221), color(247, 121, 125), (float)barWidth / barChartWidth);
+            fill(color);
+            data.color = color;
+            rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
+            textAlign(RIGHT);
             fill(0f);
-            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 0, barChartWidth);
-            final int barTop = (int)(barChartTopMargin + (0.5 + i) * spaceBetweenBars + i * barHeight);
-            rect(barChartLeftMargin, barTop, barWidth, barHeight);
+            text(data.country.fullName, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
+        }
+    }
+
+    private void highlightSelectedCountries() {
+        for (Country country: selectedCountries) {
+            final PShape currentShape = world.getChild(country.shortCode);
+            noStroke();
+            for (BarChartData chartData: barChartDataList) {
+                if (chartData.country.equals(country)) {
+                    fill(chartData.color);
+                }
+            }
+            shapeMap(currentShape);
         }
     }
 
@@ -196,7 +211,7 @@ public class Application2 extends PApplet {
             final Field selectedField = CountryInfo.class.getField(focusedProperty);
             for (Country country: selectedCountries) {
                 for (CountryInfo countryInfo : infoList) {
-                    if (countryInfo.year == LAST_YEAR && countryInfo.country.equals(country.fullName)) {
+                    if (countryInfo.year == selectedYear && countryInfo.country.equals(country.fullName)) {
                         barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
                     }
                 }
@@ -232,6 +247,7 @@ public class Application2 extends PApplet {
         final int yAxisBottom = yAxisTop + yAxisHeight;
 
         fill(0f);
+        noStroke();
         rectMode(CORNER);
         rect(xAxisMin, yAxisTop, AXIS_THICKNESS, yAxisHeight);
         rect(xAxisMin, yAxisBottom, xAxisWidth, AXIS_THICKNESS);
@@ -280,6 +296,7 @@ public class Application2 extends PApplet {
     private static class BarChartData implements Comparable<BarChartData> {
         public Country country;
         public Double value;
+        public int color;
 
         @Override
         public int compareTo(BarChartData o) {
