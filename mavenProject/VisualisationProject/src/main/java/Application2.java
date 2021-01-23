@@ -303,7 +303,7 @@ public class Application2 extends PApplet {
                 }
                 break;
             case '+':
-                addNewFocusedCountry();
+                addNewSelectedCountry();
                 break;
         }
         redraw();
@@ -313,8 +313,23 @@ public class Application2 extends PApplet {
         focusedCountry = barChartDataList.get(focusedIndex).country;
     }
 
-    private void addNewFocusedCountry() {
-        //todo
+    private void addNewSelectedCountry() {
+        for (Country country: Country.values()) {
+            if (!selectedCountries.contains(country)) {
+                selectedCountries.add(country);
+                setFocusedIndex(country);
+                break;
+            }
+        }
+    }
+
+    private void setFocusedIndex(final Country country) {
+        drawBarChart();
+        for (BarChartData chartData: barChartDataList) {
+            if (chartData.country.equals(country)) {
+                focusedIndex = barChartDataList.indexOf(chartData);
+            }
+        }
     }
 
     private static double safeDouble(final double input) {
