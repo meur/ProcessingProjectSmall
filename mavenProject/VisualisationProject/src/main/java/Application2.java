@@ -27,8 +27,8 @@ public class Application2 extends PApplet {
     private int focusedCountryIndex = 2;
     private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER,
-            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
+            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER, Country.CAN,
+            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA, Country.CAF, Country.CMR);
 
     @Override
     public void settings() {
@@ -122,7 +122,7 @@ public class Application2 extends PApplet {
             throws NoSuchFieldException, IllegalAccessException {
         final Field selectedField = CountryInfo.class.getField(property.code);
         final String title = countryName + " - " + property.fullName;
-        final DiagramData data = new DiagramData(title);
+        final DiagramData data = new DiagramData(title, property);
 
         for (CountryInfo countryInfo: infoList) {
             if (countryInfo.year >= MIN_YEAR && countryInfo.country.equals(countryName)) {
@@ -265,14 +265,15 @@ public class Application2 extends PApplet {
 
     private final int MARGIN_TOP = 10;
     private final int MARGIN_BOTTOM = 50;
-    private final int MARGIN_LEFT = 50;
-    private final int MARGIN_RIGHT = 5;
+    private final int MARGIN_LEFT = 52;
+    private final int MARGIN_RIGHT = 10;
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
 
     private void drawDiagram(final int noX, final int noY, final DiagramData data) {
 
         final String title = data.title;
+        final boolean isFocused = data.property.equals(focusedProperty);
 
         final float relativeX = (noX - 1) * DIAGRAM_RELATIVE_SIZE;
         final float relativeY = (noY - 1) * DIAGRAM_RELATIVE_SIZE;
@@ -316,6 +317,11 @@ public class Application2 extends PApplet {
                 positions[i][0] = positions[i - 1][0];
                 positions[i][1] = positions[i - 1][1];
             }
+        }
+        if (isFocused) {
+            final int xPosition = (int)map(selectedYear, MIN_YEAR, MAX_YEAR, xAxisMin + AXIS_THICKNESS, xAxisMax);
+            stroke(color(255, 0, 0));
+            line(xPosition, yAxisBottom, xPosition, yAxisTop);
         }
     }
 
@@ -467,10 +473,12 @@ public class Application2 extends PApplet {
 
     private static class DiagramData {
         public String title;
+        public Property property;
         public final List<DiagramDataElement> elements = new ArrayList<DiagramDataElement>();
 
-        public DiagramData(String title) {
+        public DiagramData(final String title, final Property property) {
             this.title = title;
+            this.property = property;
         }
 
         public float getMaxValue() {
@@ -713,7 +721,6 @@ public class Application2 extends PApplet {
         PHL("PH", "Philippines"),
         PNG("PG", "Papua New Guinea"),
         POL("PL", "Poland"),
-        PRI("PR", "Puerto Rico"),
         PRK("KP", "North Korea"),
         PRT("PT", "Portugal"),
         PRY("PY", "Paraguay"),
