@@ -88,7 +88,7 @@ public class Application2 extends PApplet {
 
     @Override
     public void draw() {
-        background(255f);
+        background(color(252, 255, 252));
 
         setFocusedProperty();
         drawMap();

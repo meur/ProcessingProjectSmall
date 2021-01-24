@@ -86,7 +86,7 @@ import java.util.List;
 
     @Override
     public void draw() {
-        background(255f);
+        background(color(252, 255, 252));
 
         setFocusedProperty();
         drawMap();
