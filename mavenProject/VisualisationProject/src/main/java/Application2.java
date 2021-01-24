@@ -20,13 +20,14 @@ public class Application2 extends PApplet {
 
     private Table data;
     private PShape world;
-    private List<CountryInfo> infoList = new ArrayList<CountryInfo>();
+    private final List<CountryInfo> infoList = new ArrayList<CountryInfo>();
 
-    private String focusedProperty = "co2";
-    private int focusedIndex = 3;
+    private int focusedPropertyIndex = 6;
+    private Property focusedProperty;
+    private int focusedCountryIndex = 3;
     private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.GRL, Country.NER,
+            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER,
             Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
 
     @Override
@@ -89,6 +90,7 @@ public class Application2 extends PApplet {
     public void draw() {
         background(255f);
 
+        setFocusedProperty();
         drawMap();
         drawBarChart();
         highlightSelectedCountries();
@@ -100,26 +102,26 @@ public class Application2 extends PApplet {
         final String selectedCountry = focusedCountry.fullName;
 
         try {
-            drawDiagram(1, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
-            drawDiagram(1, 2, getDiagramData(selectedCountry, "energy_per_capita"));
+            drawDiagram(1, 1, getDiagramData(selectedCountry, Property.ENERGY_CONSUMPTION));
+            drawDiagram(1, 2, getDiagramData(selectedCountry, Property.ENERGY_PCPT));
 
-            drawDiagram(2, 1, getDiagramData(selectedCountry, "gdp"));
-            drawDiagram(2, 2, getDiagramData(selectedCountry, "energy_per_gdp"));
+            drawDiagram(2, 1, getDiagramData(selectedCountry, Property.POPULATION));
+            drawDiagram(2, 2, getDiagramData(selectedCountry, Property.ENERGY_PGDP));
 
-            drawDiagram(4, 2, getDiagramData(selectedCountry, "co2_per_capita"));
-            drawDiagram(4, 1, getDiagramData(selectedCountry, "co2"));
+            drawDiagram(4, 2, getDiagramData(selectedCountry, Property.CO2_PCPT));
+            drawDiagram(4, 1, getDiagramData(selectedCountry, Property.CO2));
 
-            drawDiagram(3, 2, getDiagramData(selectedCountry, "nitrous_oxide_per_capita"));
-            drawDiagram(3, 1, getDiagramData(selectedCountry, "nitrous_oxide"));
+            drawDiagram(3, 2, getDiagramData(selectedCountry, Property.NITROUS_OXIDE_PCPT));
+            drawDiagram(3, 1, getDiagramData(selectedCountry, Property.NITROUS_OXIDE));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private DiagramData getDiagramData(final String countryName, final String fieldName)
+    private DiagramData getDiagramData(final String countryName, final Property property)
             throws NoSuchFieldException, IllegalAccessException {
-        final Field selectedField = CountryInfo.class.getField(fieldName);
-        final String title = countryName + " - " + fieldName;
+        final Field selectedField = CountryInfo.class.getField(property.code);
+        final String title = countryName + " - " + property.fullName;
         final DiagramData data = new DiagramData(title);
 
         for (CountryInfo countryInfo: infoList) {
@@ -145,8 +147,8 @@ public class Application2 extends PApplet {
         noFill();
         stroke(1);
 
-        mapHeight = height / 2;
-        mapTopMargin = height - mapHeight;
+        mapTopMargin = height / 2;
+        mapHeight = height - mapTopMargin;
         final float ratio = mapHeight / world.height;
         mapWidth = (int)(world.width * ratio);
         shapeMap(world);
@@ -163,6 +165,7 @@ public class Application2 extends PApplet {
     private int barChartWidth;
     private final int barChartBottomMargin = 50;
     private final int barHeight = 20;
+    private final int minBarWidth = 2;
     List<BarChartData> barChartDataList;
 
     private void drawBarChart() {
@@ -170,11 +173,12 @@ public class Application2 extends PApplet {
         barChartTopMargin = mapTopMargin + 40;
         barChartHeight = height - barChartTopMargin - barChartBottomMargin;
         barChartWidth = width - barChartLeftMargin - barChartRightMargin;
+        final int barChartBottom = barChartTopMargin + barChartHeight;
 
         noStroke();
         fill(0f);
         rect(barChartLeftMargin, barChartTopMargin, AXIS_THICKNESS, barChartHeight);
-        rect(barChartLeftMargin, height - barChartBottomMargin, barChartWidth, AXIS_THICKNESS);
+        rect(barChartLeftMargin, barChartBottom, barChartWidth, AXIS_THICKNESS);
 
         barChartDataList = getBarChartDataList();
         Collections.sort(barChartDataList);
@@ -183,7 +187,10 @@ public class Application2 extends PApplet {
         final float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
-            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 2, barChartWidth) - AXIS_THICKNESS;
+            int barWidth = (int)map(data.value.floatValue(), 0, maxValue, minBarWidth, barChartWidth) - AXIS_THICKNESS;
+            if (barWidth < minBarWidth) {
+                barWidth = 0;
+            }
             final int barTop = (int)(barChartTopMargin + ((0.5f + i) * spaceBetweenBars) + (i * barHeight));
             final int color = lerpColor(color(198, 255, 221), color(247, 121, 125), (float)barWidth / barChartWidth);
             fill(color);
@@ -191,11 +198,32 @@ public class Application2 extends PApplet {
             rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
             textAlign(RIGHT);
             fill(0f);
-            final String label = (i == focusedIndex ? "* ": "").concat(data.country.fullName);
+            final String label = (i == focusedCountryIndex ? "* ": "").concat(data.country.fullName);
             text(label, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
         }
         textAlign(CENTER);
-        text(selectedYear, barChartLeftMargin + barChartWidth / 2, height - barChartBottomMargin * (float)2/3);
+        final int barChartCenterX = barChartLeftMargin + barChartWidth / 2;
+        text(selectedYear, barChartCenterX, barChartBottom + barChartBottomMargin * (float)2/3);
+        text(focusedProperty.fullName, barChartCenterX, barChartBottom + barChartBottomMargin - 2);
+        textAlign(RIGHT);
+        text(formattedValue(maxValue), barChartLeftMargin + barChartWidth, barChartBottom + barChartBottomMargin * (float)1/3);
+        textAlign(LEFT);
+        text(0, barChartLeftMargin, barChartBottom + barChartBottomMargin * (float)1/3);
+    }
+
+    private String formattedValue(final float input) {
+        if (input < 10) {
+            return String.format("%.2f", input);
+        }
+        else if (input > 1000000) {
+            return String.format("%.2f M", input / 1000000);
+        }
+        else if (input > 1000) {
+            return String.format("%.2f K", input / 1000);
+        }
+        else {
+            return String.format("%.0f", input);
+        }
     }
 
     private void highlightSelectedCountries() {
@@ -214,12 +242,13 @@ public class Application2 extends PApplet {
     private List<BarChartData> getBarChartDataList() {
         final List<BarChartData> barChartDataList = new ArrayList<BarChartData>();
         try {
-            final Field selectedField = CountryInfo.class.getField(focusedProperty);
+            final Field selectedField = CountryInfo.class.getField(focusedProperty.code);
             for (Country country: selectedCountries) {
                 boolean added = false;
                 for (CountryInfo countryInfo : infoList) {
                     if (countryInfo.year == selectedYear && countryInfo.country.equals(country.fullName)) {
-                        barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
+                        barChartDataList.add(new BarChartData(country,
+                                safeDouble(selectedField.getDouble(countryInfo))));
                         added = true;
                         break;
                     }
@@ -289,19 +318,19 @@ public class Application2 extends PApplet {
     public void keyPressed() {
         switch(key) {
             case 'w':
-                if (focusedIndex > 0) {
-                    focusedIndex--;
+                if (focusedCountryIndex > 0) {
+                    focusedCountryIndex--;
                 }
                 break;
             case 's':
-                if (focusedIndex < selectedCountries.size() - 1) {
-                    focusedIndex++;
+                if (focusedCountryIndex < selectedCountries.size() - 1) {
+                    focusedCountryIndex++;
                 }
                 break;
             case '-':
                 if (selectedCountries.size() > 1) {
-                    if (focusedIndex == selectedCountries.size() - 1) {
-                        focusedIndex--;
+                    if (focusedCountryIndex == selectedCountries.size() - 1) {
+                        focusedCountryIndex--;
                     }
                     selectedCountries.remove(focusedCountry);
                 }
@@ -314,13 +343,13 @@ public class Application2 extends PApplet {
             case 'e':
                 if (selectedYear < MAX_YEAR) {
                     selectedYear++;
-                    setFocusedIndex(focusedCountry);
+                    setFocusedCountryIndex(focusedCountry);
                 }
                 break;
             case 'q':
                 if (selectedYear > MIN_YEAR) {
                     selectedYear--;
-                    setFocusedIndex(focusedCountry);
+                    setFocusedCountryIndex(focusedCountry);
                 }
                 break;
             case 'a':
@@ -329,19 +358,25 @@ public class Application2 extends PApplet {
             case 'd':
                 replaceFocusedCountry(1);
                 break;
+            case 'x':
+                changeFocusedProperty(1);
+                break;
+            case 'y':
+                changeFocusedProperty(-1);
+                break;
         }
         redraw();
     }
 
     private void setFocusedCountry() {
-        focusedCountry = barChartDataList.get(focusedIndex).country;
+        focusedCountry = barChartDataList.get(focusedCountryIndex).country;
     }
 
     private void addNewSelectedCountry() {
         for (Country country: Country.values()) {
             if (!selectedCountries.contains(country)) {
                 selectedCountries.add(country);
-                setFocusedIndex(country);
+                setFocusedCountryIndex(country);
                 break;
             }
         }
@@ -362,16 +397,33 @@ public class Application2 extends PApplet {
             newCountry = Country.values()[indexToAdd];
         } while (selectedCountries.contains(newCountry));
         selectedCountries.add(newCountry);
-        setFocusedIndex(newCountry);
+        setFocusedCountryIndex(newCountry);
     }
 
-    private void setFocusedIndex(final Country country) {
+    private void setFocusedCountryIndex(final Country country) {
         drawBarChart();
         for (BarChartData chartData: barChartDataList) {
             if (chartData.country.equals(country)) {
-                focusedIndex = barChartDataList.indexOf(chartData);
+                focusedCountryIndex = barChartDataList.indexOf(chartData);
             }
         }
+    }
+
+    private void changeFocusedProperty(final int indexDiff) {
+        int newIndex = focusedPropertyIndex + indexDiff;
+        if (newIndex == Property.values().length) {
+            newIndex = 0;
+        }
+        else if (newIndex == -1) {
+            newIndex = Property.values().length - 1;
+        }
+        focusedPropertyIndex = newIndex;
+        setFocusedProperty();
+        setFocusedCountryIndex(focusedCountry);
+    }
+
+    private void setFocusedProperty() {
+        focusedProperty = Property.values()[focusedPropertyIndex];
     }
 
     private static double safeDouble(final double input) {
@@ -384,7 +436,7 @@ public class Application2 extends PApplet {
     }
 
     private static float safeFloat(final double input) {
-        if (Double.isNaN(input)) {
+        if (Double.isNaN(input) || Double.isInfinite(input)) {
             return 0f;
         }
         else {
@@ -718,6 +770,25 @@ public class Application2 extends PApplet {
 
         String shortCode;
         String fullName;
+    }
+
+    private static enum Property {
+        ENERGY_CONSUMPTION("primary_energy_consumption", "Primary energy consumption"),
+        ENERGY_PCPT("energy_per_capita", "Energy per capita"),
+        POPULATION("population", "Population"),
+        ENERGY_PGDP("energy_per_gdp", "Energy per GDP"),
+        NITROUS_OXIDE("nitrous_oxide", "Nitrous oxide"),
+        NITROUS_OXIDE_PCPT("nitrous_oxide_per_capita", "Nitrous oxide per capita"),
+        CO2("co2", "CO2"),
+        CO2_PCPT("co2_per_capita", "CO2 per capita");
+
+        Property(String code, String fullName) {
+            this.code = code;
+            this.fullName = fullName;
+        }
+
+        public String code;
+        public String fullName;
     }
 
     public static void main(String[] args) {
