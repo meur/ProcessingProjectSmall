@@ -102,19 +102,15 @@ public class Application2 extends PApplet {
         try {
             drawDiagram(1, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
             drawDiagram(1, 2, getDiagramData(selectedCountry, "energy_per_capita"));
-            //drawDiagram(1, 3, getDiagramData(selectedCountry, "population"));
 
-            drawDiagram(2, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
-            //drawDiagram(2, 3, getDiagramData(selectedCountry, "gdp"));
+            drawDiagram(2, 1, getDiagramData(selectedCountry, "gdp"));
             drawDiagram(2, 2, getDiagramData(selectedCountry, "energy_per_gdp"));
 
             drawDiagram(4, 2, getDiagramData(selectedCountry, "co2_per_capita"));
-            //drawDiagram(4, 3, getDiagramData(selectedCountry, "co2"));
+            drawDiagram(4, 1, getDiagramData(selectedCountry, "co2"));
 
             drawDiagram(3, 2, getDiagramData(selectedCountry, "nitrous_oxide_per_capita"));
-            //drawDiagram(3, 3, getDiagramData(selectedCountry, "nitrous_oxide"));
-//            drawDiagram(3, 2, getDiagramData(selectedCountry, "methane_per_capita"));
-//            drawDiagram(3, 3, getDiagramData(selectedCountry, "methane"));
+            drawDiagram(3, 1, getDiagramData(selectedCountry, "nitrous_oxide"));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -141,8 +137,8 @@ public class Application2 extends PApplet {
     private int mapWidth;
     private int mapHeight;
     private int mapTopMargin;
-    private final int mapLeftMargin = 0;
-    private final int mapRightMargin = 50;
+    private final int mapLeftMargin = -100;
+    private final int mapRightMargin = 100;
 
     private void drawMap() {
         world.disableStyle();
