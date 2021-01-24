@@ -265,7 +265,7 @@ public class Application2 extends PApplet {
 
     private final int MARGIN_TOP = 10;
     private final int MARGIN_BOTTOM = 50;
-    private final int MARGIN_LEFT = 30;
+    private final int MARGIN_LEFT = 45;
     private final int MARGIN_RIGHT = 5;
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
@@ -293,7 +293,13 @@ public class Application2 extends PApplet {
 
         textAlign(CENTER);
         textSize(12);
-        text(title, xAxisCenter, yAxisBottom + MARGIN_BOTTOM - 5);
+        text(title, xAxisCenter, yAxisBottom + MARGIN_BOTTOM * 2/3);
+        textAlign(LEFT);
+        text(MIN_YEAR, xAxisMin, yAxisBottom + MARGIN_BOTTOM / 3);
+        textAlign(RIGHT);
+        text(MAX_YEAR, xAxisMax, yAxisBottom + MARGIN_BOTTOM / 3);
+        text(0, xAxisMin - 1, yAxisBottom);
+        text(formattedValue(data.getMaxValue()), xAxisMin - 1, yAxisTop + 15);
 
         //for (String countieName : selectedCounties) {
             final int elementCount = data.elements.size();
