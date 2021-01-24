@@ -5,25 +5,28 @@ import processing.data.TableRow;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.LinkedList;
 import java.util.List;
 
     private final String MAP_NAME = "world.svg";
 
-    private static final int LAST_YEAR = 2018;
+    private static final int MIN_YEAR = 1990;
+    private static final int MAX_YEAR = 2018;
+    private int selectedYear = MAX_YEAR;
 
     private Table data;
     private PShape world;
-    private List<CountryInfo> infoList = new ArrayList<CountryInfo>();
+    private final List<CountryInfo> infoList = new ArrayList<CountryInfo>();
 
-    private String focusedProperty = "co2";
-
-    private Country focusedCountry = Country.HUN;
+    private int focusedPropertyIndex = 6;
+    private Property focusedProperty;
+    private int focusedCountryIndex = 4;
+    private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
-            focusedCountry, Country.DEU, Country.JPN, Country.AUS, Country.SDN,
-            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA);
+            Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER, Country.CAN,
+            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA, Country.CAF, Country.CMR);
 
     @Override
     public void settings() {
@@ -84,38 +87,40 @@ import java.util.List;
     @Override
     public void draw() {
         background(255f);
+
+        setFocusedProperty();
+        drawMap();
+        drawBarChart();
+        highlightSelectedCountries();
+        setFocusedCountry();
+        drawDiagramGrid();
+    }
+
+    private void drawDiagramGrid() {
         final String selectedCountry = focusedCountry.fullName;
 
         try {
-            drawDiagram(1, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
-            drawDiagram(1, 2, getDiagramData(selectedCountry, "energy_per_capita"));
-            //drawDiagram(1, 3, getDiagramData(selectedCountry, "population"));
+            drawDiagram(1, 1, getDiagramData(selectedCountry, Property.ENERGY_CONSUMPTION));
+            drawDiagram(1, 2, getDiagramData(selectedCountry, Property.ENERGY_PCPT));
 
-            drawDiagram(2, 1, getDiagramData(selectedCountry, "primary_energy_consumption"));
-            //drawDiagram(2, 3, getDiagramData(selectedCountry, "gdp"));
-            drawDiagram(2, 2, getDiagramData(selectedCountry, "energy_per_gdp"));
+            drawDiagram(2, 1, getDiagramData(selectedCountry, Property.POPULATION));
+            drawDiagram(2, 2, getDiagramData(selectedCountry, Property.ENERGY_PGDP));
 
-            drawDiagram(4, 2, getDiagramData(selectedCountry, "co2_per_capita"));
-            //drawDiagram(4, 3, getDiagramData(selectedCountry, "co2"));
+            drawDiagram(4, 2, getDiagramData(selectedCountry, Property.CO2_PCPT));
+            drawDiagram(4, 1, getDiagramData(selectedCountry, Property.CO2));
 
-            drawDiagram(3, 2, getDiagramData(selectedCountry, "nitrous_oxide_per_capita"));
-            //drawDiagram(3, 3, getDiagramData(selectedCountry, "nitrous_oxide"));
-//            drawDiagram(3, 2, getDiagramData(selectedCountry, "methane_per_capita"));
-//            drawDiagram(3, 3, getDiagramData(selectedCountry, "methane"));
+            drawDiagram(3, 2, getDiagramData(selectedCountry, Property.NITROUS_OXIDE_PCPT));
+            drawDiagram(3, 1, getDiagramData(selectedCountry, Property.NITROUS_OXIDE));
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        drawMap();
-
-        drawBarChart();
     }
 
-    private DiagramData getDiagramData(final String countryName, final String fieldName)
+    private DiagramData getDiagramData(final String countryName, final Property property)
             throws NoSuchFieldException, IllegalAccessException {
-        final Field selectedField = CountryInfo.class.getField(fieldName);
-        final String title = countryName + " - " + fieldName;
-        final DiagramData data = new DiagramData(title);
+        final Field selectedField = CountryInfo.class.getField(property.code);
+        final String title = countryName + " - " + property.fullName;
+        final DiagramData data = new DiagramData(title, property);
 
         for (CountryInfo countryInfo: infoList) {
             if (countryInfo.year >= MIN_YEAR && countryInfo.country.equals(countryName)) {
@@ -132,25 +137,19 @@ import java.util.List;
     private int mapWidth;
     private int mapHeight;
     private int mapTopMargin;
-    private final int mapLeftMargin = 0;
-    private final int mapRightMargin = 50;
+    private final int mapLeftMargin = -100;
+    private final int mapRightMargin = 100;
 
     private void drawMap() {
         world.disableStyle();
         noFill();
         stroke(1);
 
-        mapHeight = height / 2;
-        mapTopMargin = height - mapHeight;
+        mapTopMargin = height / 2;
+        mapHeight = height - mapTopMargin;
         final float ratio = mapHeight / world.height;
         mapWidth = (int)(world.width * ratio);
         shapeMap(world);
-
-        for (Country country: selectedCountries) {
-            final PShape currentShape = world.getChild(country.shortCode);
-            fill(0f);
-            shapeMap(currentShape);
-        }
     }
 
     public void shapeMap(final PShape shape) {
@@ -164,40 +163,110 @@ import java.util.List;
     private int barChartWidth;
     private final int barChartBottomMargin = 50;
     private final int barHeight = 20;
+    private final int minBarWidth = 2;
+    List<BarChartData> barChartDataList;
 
     private void drawBarChart() {
         barChartLeftMargin = mapLeftMargin + mapWidth + mapRightMargin;
         barChartTopMargin = mapTopMargin + 40;
         barChartHeight = height - barChartTopMargin - barChartBottomMargin;
         barChartWidth = width - barChartLeftMargin - barChartRightMargin;
+        final int barChartBottom = barChartTopMargin + barChartHeight;
 
+        noStroke();
         fill(0f);
         rect(barChartLeftMargin, barChartTopMargin, AXIS_THICKNESS, barChartHeight);
-        rect(barChartLeftMargin, height - barChartBottomMargin, barChartWidth, AXIS_THICKNESS);
+        rect(barChartLeftMargin, barChartBottom, barChartWidth, AXIS_THICKNESS);
 
-        final List<BarChartData> barChartDataList = getBarChartDataList();
+        barChartDataList = getBarChartDataList();
         Collections.sort(barChartDataList);
         final int barsCount = barChartDataList.size();
         final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
-        final float maxValue = barChartDataList.get(barsCount - 1).value.floatValue();
+        final float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
+            final float currentValue = data.value.floatValue();
+            int barWidth = (int)map(currentValue, 0, maxValue, minBarWidth, barChartWidth) - AXIS_THICKNESS;
+            if (barWidth < minBarWidth) {
+                barWidth = 0;
+            }
+            final int barTop = (int)(barChartTopMargin + ((0.5f + i) * spaceBetweenBars) + (i * barHeight));
+            final int barColor = lerpColor(color(198, 255, 221), color(247, 121, 125), (float)barWidth / barChartWidth);
+            fill(barColor);
+            data.associatedColor = barColor;
+            rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
+            textAlign(RIGHT);
             fill(0f);
-            final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 0, barChartWidth);
-            final int barTop = (int)(barChartTopMargin + (0.5 + i) * spaceBetweenBars + i * barHeight);
-            rect(barChartLeftMargin, barTop, barWidth, barHeight);
+            final String countryLabel = (i == focusedCountryIndex ? "* ": "").concat(data.country.fullName);
+            text(countryLabel, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
+
+            final String infoLabel = formattedValue(currentValue).concat((i == focusedCountryIndex ? " *": ""));
+            if (barWidth > barChartWidth - 80) {
+                textAlign(RIGHT);
+                fill(255f);
+                text(infoLabel, barChartLeftMargin + barWidth, barTop + 14);
+            }
+            else {
+                textAlign(LEFT);
+                fill(0f);
+                text(infoLabel, barChartLeftMargin + barWidth + 8, barTop + 14);
+            }
+        }
+        fill(0f);
+        textAlign(CENTER);
+        final int barChartCenterX = barChartLeftMargin + barChartWidth / 2;
+        text(selectedYear, barChartCenterX, barChartBottom + barChartBottomMargin * (float)2/3);
+        text(focusedProperty.fullName, barChartCenterX, barChartBottom + barChartBottomMargin - 2);
+        textAlign(RIGHT);
+        text(formattedValue(maxValue), barChartLeftMargin + barChartWidth, barChartBottom + barChartBottomMargin * (float)1/3);
+        textAlign(LEFT);
+        text(0, barChartLeftMargin, barChartBottom + barChartBottomMargin * (float)1/3);
+    }
+
+    private String formattedValue(final float input) {
+        if (input < 10) {
+            return String.format("%.2f", input);
+        }
+        else if (input > 1000000) {
+            return String.format("%.2f M", input / 1000000);
+        }
+        else if (input > 1000) {
+            return String.format("%.2f K", input / 1000);
+        }
+        else {
+            return String.format("%.0f", input);
+        }
+    }
+
+    private void highlightSelectedCountries() {
+        for (Country country: selectedCountries) {
+            final PShape currentShape = world.getChild(country.shortCode);
+            noStroke();
+            for (BarChartData chartData: barChartDataList) {
+                if (chartData.country.equals(country)) {
+                    fill(chartData.associatedColor);
+                }
+            }
+            shapeMap(currentShape);
         }
     }
 
     private List<BarChartData> getBarChartDataList() {
-        final List<BarChartData> barChartDataList = new LinkedList<BarChartData>();
+        final List<BarChartData> barChartDataList = new ArrayList<BarChartData>();
         try {
-            final Field selectedField = CountryInfo.class.getField(focusedProperty);
+            final Field selectedField = CountryInfo.class.getField(focusedProperty.code);
             for (Country country: selectedCountries) {
+                boolean added = false;
                 for (CountryInfo countryInfo : infoList) {
-                    if (countryInfo.year == LAST_YEAR && countryInfo.country.equals(country.fullName)) {
-                        barChartDataList.add(new BarChartData(country, selectedField.getDouble(countryInfo)));
+                    if (countryInfo.year == selectedYear && countryInfo.country.equals(country.fullName)) {
+                        barChartDataList.add(new BarChartData(country,
+                                safeDouble(selectedField.getDouble(countryInfo))));
+                        added = true;
+                        break;
                     }
+                }
+                if (!added) {
+                    barChartDataList.add(new BarChartData(country, 0));
                 }
             }
         } catch (Exception e) {
@@ -208,16 +277,15 @@ import java.util.List;
 
     private final int MARGIN_TOP = 10;
     private final int MARGIN_BOTTOM = 50;
-    private final int MARGIN_LEFT = 30;
-    private final int MARGIN_RIGHT = 5;
+    private final int MARGIN_LEFT = 52;
+    private final int MARGIN_RIGHT = 10;
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
-
-    private final int MIN_YEAR = 1950;
 
     private void drawDiagram(final int noX, final int noY, final DiagramData data) {
 
         final String title = data.title;
+        final boolean isFocused = data.property.equals(focusedProperty);
 
         final float relativeX = (noX - 1) * DIAGRAM_RELATIVE_SIZE;
         final float relativeY = (noY - 1) * DIAGRAM_RELATIVE_SIZE;
@@ -231,31 +299,154 @@ import java.util.List;
         final int yAxisBottom = yAxisTop + yAxisHeight;
 
         fill(0f);
+        noStroke();
         rectMode(CORNER);
         rect(xAxisMin, yAxisTop, AXIS_THICKNESS, yAxisHeight);
         rect(xAxisMin, yAxisBottom, xAxisWidth, AXIS_THICKNESS);
 
         textAlign(CENTER);
         textSize(12);
-        text(title, xAxisCenter, yAxisBottom + MARGIN_BOTTOM - 5);
+        text(title, xAxisCenter, yAxisBottom + MARGIN_BOTTOM * 2/3);
+        textAlign(LEFT);
+        text(MIN_YEAR, xAxisMin, yAxisBottom + MARGIN_BOTTOM / 3);
+        textAlign(RIGHT);
+        text(MAX_YEAR, xAxisMax, yAxisBottom + MARGIN_BOTTOM / 3);
+        text(0, xAxisMin - 1, yAxisBottom);
+        text(formattedValue(data.getMaxValue()), xAxisMin - 1, yAxisTop + 15);
 
-        //for (String countieName : selectedCounties) {
-            final int elementCount = data.elements.size();
-            int[][] positions = new int[elementCount][2];  // x, y1, y2
-            for (int i = 0; i < elementCount; i++) {
-                float elemValue = safeFloat(data.elements.get(i).y);
-                //final TableRow currentRow = getSelectedRowByIndex(i);
-                positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
-                positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
-                //positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbsolute, bottomDiagramYAxisMin, bottomDiagramYAxisMax);
-            }
-            //stroke(colorOf(countieName));
-            stroke(127f);
-            for (int i = 1; i < elementCount; i++) {
+        final int elementCount = data.elements.size();
+        int[][] positions = new int[elementCount][2];  // x, y
+        for (int i = 0; i < elementCount; i++) {
+            float elemValue = safeFloat(data.elements.get(i).y);
+            positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
+            positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
+        }
+        stroke(127f);
+        for (int i = 1; i < elementCount; i++) {
+            if (positions[i][1] != yAxisBottom) {
                 line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
-                //line(positions[i - 1][0], positions[i - 1][2], positions[i][0], positions[i][2]);
+            } else {    // value is 0
+                positions[i][0] = positions[i - 1][0];
+                positions[i][1] = positions[i - 1][1];
             }
-        //}
+        }
+        if (isFocused) {
+            final int xPosition = (int)map(selectedYear, MIN_YEAR, MAX_YEAR, xAxisMin + AXIS_THICKNESS, xAxisMax);
+            stroke(color(255, 0, 0));
+            line(xPosition, yAxisBottom, xPosition, yAxisTop);
+        }
+    }
+
+    @Override
+    public void keyPressed() {
+        switch(key) {
+            case 'w':
+                if (focusedCountryIndex > 0) {
+                    focusedCountryIndex--;
+                }
+                break;
+            case 's':
+                if (focusedCountryIndex < selectedCountries.size() - 1) {
+                    focusedCountryIndex++;
+                }
+                break;
+            case '-':
+                if (selectedCountries.size() > 1) {
+                    if (focusedCountryIndex == selectedCountries.size() - 1) {
+                        focusedCountryIndex--;
+                    }
+                    selectedCountries.remove(focusedCountry);
+                }
+                break;
+            case '+':
+                if (selectedCountries.size() < 16) {
+                    addNewSelectedCountry();
+                }
+                break;
+            case 'e':
+                if (selectedYear < MAX_YEAR) {
+                    selectedYear++;
+                    setFocusedCountryIndex(focusedCountry);
+                }
+                break;
+            case 'q':
+                if (selectedYear > MIN_YEAR) {
+                    selectedYear--;
+                    setFocusedCountryIndex(focusedCountry);
+                }
+                break;
+            case 'a':
+                replaceFocusedCountry(-1);
+                break;
+            case 'd':
+                replaceFocusedCountry(1);
+                break;
+            case 'x':
+                changeFocusedProperty(1);
+                break;
+            case 'y':
+                changeFocusedProperty(-1);
+                break;
+        }
+        redraw();
+    }
+
+    private void setFocusedCountry() {
+        focusedCountry = barChartDataList.get(focusedCountryIndex).country;
+    }
+
+    private void addNewSelectedCountry() {
+        for (Country country: Country.values()) {
+            if (!selectedCountries.contains(country)) {
+                selectedCountries.add(country);
+                setFocusedCountryIndex(country);
+                break;
+            }
+        }
+    }
+
+    private void replaceFocusedCountry(final int indexDiff) {
+        selectedCountries.remove(focusedCountry);
+        int indexToAdd = Arrays.asList(Country.values()).indexOf(focusedCountry);
+        Country newCountry;
+        do {
+            indexToAdd += indexDiff;
+            if (indexToAdd == Country.values().length) {
+                indexToAdd = 0;
+            }
+            else if (indexToAdd == -1) {
+                indexToAdd = Country.values().length - 1;
+            }
+            newCountry = Country.values()[indexToAdd];
+        } while (selectedCountries.contains(newCountry));
+        selectedCountries.add(newCountry);
+        setFocusedCountryIndex(newCountry);
+    }
+
+    private void setFocusedCountryIndex(final Country country) {
+        drawBarChart();
+        for (BarChartData chartData: barChartDataList) {
+            if (chartData.country.equals(country)) {
+                focusedCountryIndex = barChartDataList.indexOf(chartData);
+            }
+        }
+    }
+
+    private void changeFocusedProperty(final int indexDiff) {
+        int newIndex = focusedPropertyIndex + indexDiff;
+        if (newIndex == Property.values().length) {
+            newIndex = 0;
+        }
+        else if (newIndex == -1) {
+            newIndex = Property.values().length - 1;
+        }
+        focusedPropertyIndex = newIndex;
+        setFocusedProperty();
+        setFocusedCountryIndex(focusedCountry);
+    }
+
+    private void setFocusedProperty() {
+        focusedProperty = Property.values()[focusedPropertyIndex];
     }
 
     private static double safeDouble(final double input) {
@@ -268,7 +459,7 @@ import java.util.List;
     }
 
     private static float safeFloat(final double input) {
-        if (Double.isNaN(input)) {
+        if (Double.isNaN(input) || Double.isInfinite(input)) {
             return 0f;
         }
         else {
@@ -279,6 +470,7 @@ import java.util.List;
     private static class BarChartData implements Comparable<BarChartData> {
         public Country country;
         public Double value;
+        public int associatedColor;
 
         @Override
         public int compareTo(BarChartData o) {
@@ -293,10 +485,12 @@ import java.util.List;
 
     private static class DiagramData {
         public String title;
+        public Property property;
         public final List<DiagramDataElement> elements = new ArrayList<DiagramDataElement>();
 
-        public DiagramData(String title) {
+        public DiagramData(final String title, final Property property) {
             this.title = title;
+            this.property = property;
         }
 
         public float getMaxValue() {
@@ -539,7 +733,6 @@ import java.util.List;
         PHL("PH", "Philippines"),
         PNG("PG", "Papua New Guinea"),
         POL("PL", "Poland"),
-        PRI("PR", "Puerto Rico"),
         PRK("KP", "North Korea"),
         PRT("PT", "Portugal"),
         PRY("PY", "Paraguay"),
@@ -601,4 +794,23 @@ import java.util.List;
 
         String shortCode;
         String fullName;
+    }
+
+    private static enum Property {
+        ENERGY_CONSUMPTION("primary_energy_consumption", "Primary energy consumption"),
+        ENERGY_PCPT("energy_per_capita", "Energy per capita"),
+        POPULATION("population", "Population"),
+        ENERGY_PGDP("energy_per_gdp", "Energy per GDP"),
+        NITROUS_OXIDE("nitrous_oxide", "Nitrous oxide"),
+        NITROUS_OXIDE_PCPT("nitrous_oxide_per_capita", "Nitrous oxide per capita"),
+        CO2("co2", "CO2"),
+        CO2_PCPT("co2_per_capita", "CO2 per capita");
+
+        Property(String code, String fullName) {
+            this.code = code;
+            this.fullName = fullName;
+        }
+
+        public String code;
+        public String fullName;
     }

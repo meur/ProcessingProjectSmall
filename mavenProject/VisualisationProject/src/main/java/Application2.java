@@ -193,9 +193,9 @@ public class Application2 extends PApplet {
                 barWidth = 0;
             }
             final int barTop = (int)(barChartTopMargin + ((0.5f + i) * spaceBetweenBars) + (i * barHeight));
-            final int color = lerpColor(color(198, 255, 221), color(247, 121, 125), (float)barWidth / barChartWidth);
-            fill(color);
-            data.color = color;
+            final int barColor = lerpColor(color(198, 255, 221), color(247, 121, 125), (float)barWidth / barChartWidth);
+            fill(barColor);
+            data.associatedColor = barColor;
             rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
             textAlign(RIGHT);
             fill(0f);
@@ -246,7 +246,7 @@ public class Application2 extends PApplet {
             noStroke();
             for (BarChartData chartData: barChartDataList) {
                 if (chartData.country.equals(country)) {
-                    fill(chartData.color);
+                    fill(chartData.associatedColor);
                 }
             }
             shapeMap(currentShape);
@@ -472,7 +472,7 @@ public class Application2 extends PApplet {
     private static class BarChartData implements Comparable<BarChartData> {
         public Country country;
         public Double value;
-        public int color;
+        public int associatedColor;
 
         @Override
         public int compareTo(BarChartData o) {
