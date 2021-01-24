@@ -24,7 +24,7 @@ public class Application2 extends PApplet {
 
     private int focusedPropertyIndex = 6;
     private Property focusedProperty;
-    private int focusedCountryIndex = 2;
+    private int focusedCountryIndex = 4;
     private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
             Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER, Country.CAN,
@@ -187,7 +187,8 @@ public class Application2 extends PApplet {
         final float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
-            int barWidth = (int)map(data.value.floatValue(), 0, maxValue, minBarWidth, barChartWidth) - AXIS_THICKNESS;
+            final float currentValue = data.value.floatValue();
+            int barWidth = (int)map(currentValue, 0, maxValue, minBarWidth, barChartWidth) - AXIS_THICKNESS;
             if (barWidth < minBarWidth) {
                 barWidth = 0;
             }
@@ -198,9 +199,22 @@ public class Application2 extends PApplet {
             rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
             textAlign(RIGHT);
             fill(0f);
-            final String label = (i == focusedCountryIndex ? "* ": "").concat(data.country.fullName);
-            text(label, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
+            final String countryLabel = (i == focusedCountryIndex ? "* ": "").concat(data.country.fullName);
+            text(countryLabel, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
+
+            final String infoLabel = formattedValue(currentValue).concat((i == focusedCountryIndex ? " *": ""));
+            if (barWidth > barChartWidth - 80) {
+                textAlign(RIGHT);
+                fill(255f);
+                text(infoLabel, barChartLeftMargin + barWidth, barTop + 14);
+            }
+            else {
+                textAlign(LEFT);
+                fill(0f);
+                text(infoLabel, barChartLeftMargin + barWidth + 8, barTop + 14);
+            }
         }
+        fill(0f);
         textAlign(CENTER);
         final int barChartCenterX = barChartLeftMargin + barChartWidth / 2;
         text(selectedYear, barChartCenterX, barChartBottom + barChartBottomMargin * (float)2/3);
