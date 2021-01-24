@@ -5,6 +5,7 @@ import processing.data.TableRow;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -183,7 +184,7 @@ public class Application2 extends PApplet {
         Collections.sort(barChartDataList);
         final int barsCount = barChartDataList.size();
         final int spaceBetweenBars = (barChartHeight - barsCount * barHeight) / barsCount;
-        float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
+        final float maxValue = safeFloat(barChartDataList.get(barsCount - 1).value);
         for (int i = 0; i < barsCount; i++) {
             final BarChartData data = barChartDataList.get(i);
             final int barWidth = (int)map(data.value.floatValue(), 0, maxValue, 2, barChartWidth) - AXIS_THICKNESS;
@@ -326,6 +327,12 @@ public class Application2 extends PApplet {
                     setFocusedIndex(focusedCountry);
                 }
                 break;
+            case 'a':
+                replaceFocusedCountry(-1);
+                break;
+            case 'd':
+                replaceFocusedCountry(1);
+                break;
         }
         redraw();
     }
@@ -342,6 +349,24 @@ public class Application2 extends PApplet {
                 break;
             }
         }
+    }
+
+    private void replaceFocusedCountry(final int indexDiff) {
+        selectedCountries.remove(focusedCountry);
+        int indexToAdd = Arrays.asList(Country.values()).indexOf(focusedCountry);
+        Country newCountry;
+        do {
+            indexToAdd += indexDiff;
+            if (indexToAdd == Country.values().length) {
+                indexToAdd = 0;
+            }
+            else if (indexToAdd == -1) {
+                indexToAdd = Country.values().length - 1;
+            }
+            newCountry = Country.values()[indexToAdd];
+        } while (selectedCountries.contains(newCountry));
+        selectedCountries.add(newCountry);
+        setFocusedIndex(newCountry);
     }
 
     private void setFocusedIndex(final Country country) {
