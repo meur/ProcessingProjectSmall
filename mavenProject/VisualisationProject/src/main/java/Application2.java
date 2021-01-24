@@ -24,7 +24,7 @@ public class Application2 extends PApplet {
 
     private int focusedPropertyIndex = 6;
     private Property focusedProperty;
-    private int focusedCountryIndex = 3;
+    private int focusedCountryIndex = 2;
     private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
             Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER,
@@ -265,7 +265,7 @@ public class Application2 extends PApplet {
 
     private final int MARGIN_TOP = 10;
     private final int MARGIN_BOTTOM = 50;
-    private final int MARGIN_LEFT = 45;
+    private final int MARGIN_LEFT = 50;
     private final int MARGIN_RIGHT = 5;
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
@@ -301,23 +301,22 @@ public class Application2 extends PApplet {
         text(0, xAxisMin - 1, yAxisBottom);
         text(formattedValue(data.getMaxValue()), xAxisMin - 1, yAxisTop + 15);
 
-        //for (String countieName : selectedCounties) {
-            final int elementCount = data.elements.size();
-            int[][] positions = new int[elementCount][2];  // x, y1, y2
-            for (int i = 0; i < elementCount; i++) {
-                float elemValue = safeFloat(data.elements.get(i).y);
-                //final TableRow currentRow = getSelectedRowByIndex(i);
-                positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
-                positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
-                //positions[i - rowIndexMin][2] = (int) map(getAbsoluteAffected(currentRow, countieName), 0, maxSelectedAbsolute, bottomDiagramYAxisMin, bottomDiagramYAxisMax);
-            }
-            //stroke(colorOf(countieName));
-            stroke(127f);
-            for (int i = 1; i < elementCount; i++) {
+        final int elementCount = data.elements.size();
+        int[][] positions = new int[elementCount][2];  // x, y
+        for (int i = 0; i < elementCount; i++) {
+            float elemValue = safeFloat(data.elements.get(i).y);
+            positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
+            positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
+        }
+        stroke(127f);
+        for (int i = 1; i < elementCount; i++) {
+            if (positions[i][1] != yAxisBottom) {
                 line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
-                //line(positions[i - 1][0], positions[i - 1][2], positions[i][0], positions[i][2]);
+            } else {    // value is 0
+                positions[i][0] = positions[i - 1][0];
+                positions[i][1] = positions[i - 1][1];
             }
-        //}
+        }
     }
 
     @Override
