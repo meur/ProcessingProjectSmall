@@ -17,6 +17,7 @@ public class Application2 extends PApplet {
     private static final int MIN_YEAR = 1990;
     private static final int MAX_YEAR = 2018;
     private int selectedYear = MAX_YEAR;
+    private final int MAX_SELECTED_COUNTIES = 18;
 
     private Table data;
     private PShape world;
@@ -28,7 +29,7 @@ public class Application2 extends PApplet {
     private Country focusedCountry;
     private final EnumSet<Country> selectedCountries = EnumSet.of(
             Country.HUN, Country.DEU, Country.JPN, Country.AUS, Country.SDN, Country.NER, Country.CAN,
-            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA, Country.CAF, Country.CMR);
+            Country.USA, Country.RUS, Country.CHN, Country.IND, Country.BRA, Country.SAU, Country.CMR);
 
     @Override
     public void settings() {
@@ -96,6 +97,7 @@ public class Application2 extends PApplet {
         highlightSelectedCountries();
         setFocusedCountry();
         drawDiagramGrid();
+        drawAbbrevGrid();
     }
 
     private void drawDiagramGrid() {
@@ -339,6 +341,81 @@ public class Application2 extends PApplet {
         }
     }
 
+    int startX;
+    int startY;
+    int boxW;
+    int boxH;
+    final int boxPerLine = 19;
+    final int boxYPadding = 18;
+    int abbrewTotalW;
+    Country hoveredCountry = null;
+    private void drawAbbrevGrid() {
+        startX = 0;
+        startY = mapTopMargin;
+        abbrewTotalW = mapWidth + mapLeftMargin;
+        boxW = abbrewTotalW / boxPerLine;
+        boxH = 54;
+        if (mouseX <= abbrewTotalW && mouseY > mapTopMargin) {
+            fill(255f);
+            rect(0, mapTopMargin, boxW * boxPerLine, mapHeight);
+            noFill();
+            textSize(16);
+            for (int i = 0; i < Country.values().length; i++) {
+                final Country currentCountry = Country.values()[i];
+                final int row = ((i * boxW) % (boxPerLine * boxW)) / boxW;
+                final int line = ((i * boxW) / (boxPerLine * boxW));
+                final int currX = startX + row * boxW;
+                final int currY = startY + line * boxH;
+                if (selectedCountries.contains(currentCountry)) {
+                    fill(200, 200, 250);
+                }
+                else {
+                    noFill();
+                }
+                if (mouseX > currX && mouseX <= currX + boxW && mouseY < currY + boxH && mouseY > currY) {
+                    hoveredCountry = currentCountry;
+                    if (selectedCountries.contains(currentCountry)) {
+                        fill(150, 150, 250);
+                    }
+                    else {
+                        fill(180f);
+                    }
+                }
+                rect(currX, currY, boxW, boxH);
+                textAlign(CENTER);
+                fill(0f);
+                text(currentCountry.name(), currX + boxW / 2, currY + boxH - boxYPadding);
+            }
+            textSize(12);
+        }
+    }
+
+    @Override
+    public void mouseMoved() {
+        hoveredCountry = null;
+        redraw();
+    }
+
+    @Override
+    public void mouseClicked() {
+        flipTheHoveredCountry();
+        redraw();
+    }
+
+    private void flipTheHoveredCountry() {
+        if (hoveredCountry != null) {
+            if (!selectedCountries.contains(hoveredCountry)) {
+                if (selectedCountries.size() < MAX_SELECTED_COUNTIES) {
+                    selectedCountries.add(hoveredCountry);
+                    setFocusedCountryIndex(hoveredCountry);
+                }
+            }
+            else {
+                selectedCountries.remove(hoveredCountry);
+            }
+        }
+    }
+
     @Override
     public void keyPressed() {
         switch(key) {
@@ -361,7 +438,7 @@ public class Application2 extends PApplet {
                 }
                 break;
             case '+':
-                if (selectedCountries.size() < 16) {
+                if (selectedCountries.size() < MAX_SELECTED_COUNTIES) {
                     addNewSelectedCountry();
                 }
                 break;
@@ -602,7 +679,6 @@ public class Application2 extends PApplet {
         AIA("AI", "Anguilla"),
         ALB("AL", "Albania"),
         AND("AD", "Andorra"),
-        ANT("NL", "Netherlands Antilles"),
         ARE("AE", "United Arab Emirates"),
         ARG("AR", "Argentina"),
         ARM("AM", "Armenia"),
@@ -739,7 +815,6 @@ public class Application2 extends PApplet {
         PRT("PT", "Portugal"),
         PRY("PY", "Paraguay"),
         PSE("PS", "Palestine"),
-        PYF("PF", "French Polynesia"),
         QAT("QA", "Qatar"),
         ROU("RO", "Romania"),
         RUS("RU", "Russia"),
