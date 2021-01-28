@@ -103,33 +103,30 @@ public class Application2 extends PApplet {
     }
 
     private void drawDiagramGrid() {
-        final String selectedCountry = focusedCountry.fullName;
-
         try {
-            drawDiagram(1, 1, getDiagramData(selectedCountry, Property.ENERGY_CONSUMPTION));
-            drawDiagram(1, 2, getDiagramData(selectedCountry, Property.ENERGY_PCPT));
+            drawDiagram(1, 1, Property.ENERGY_CONSUMPTION);
+            drawDiagram(1, 2, Property.ENERGY_PCPT);
 
-            drawDiagram(2, 1, getDiagramData(selectedCountry, Property.POPULATION));
-            drawDiagram(2, 2, getDiagramData(selectedCountry, Property.ENERGY_PGDP));
+            drawDiagram(2, 1, Property.POPULATION);
+            drawDiagram(2, 2, Property.ENERGY_PGDP);
 
-            drawDiagram(4, 2, getDiagramData(selectedCountry, Property.CO2_PCPT));
-            drawDiagram(4, 1, getDiagramData(selectedCountry, Property.CO2));
+            drawDiagram(4, 2, Property.CO2_PCPT);
+            drawDiagram(4, 1, Property.CO2);
 
-            drawDiagram(3, 2, getDiagramData(selectedCountry, Property.NITROUS_OXIDE_PCPT));
-            drawDiagram(3, 1, getDiagramData(selectedCountry, Property.NITROUS_OXIDE));
+            drawDiagram(3, 2, Property.NITROUS_OXIDE_PCPT);
+            drawDiagram(3, 1, Property.NITROUS_OXIDE);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private DiagramData getDiagramData(final String countryName, final Property property)
+    private DiagramData getDiagramData(final Country country, final Property property)
             throws NoSuchFieldException, IllegalAccessException {
         final Field selectedField = CountryInfo.class.getField(property.code);
-        final String title = countryName + " - " + property.fullName;
-        final DiagramData data = new DiagramData(title, property);
+        final DiagramData data = new DiagramData(property, country);
 
         for (CountryInfo countryInfo: infoList) {
-            if (countryInfo.year >= MIN_YEAR && countryInfo.country.equals(countryName)) {
+            if (countryInfo.year >= MIN_YEAR && countryInfo.country.equals(country.fullName)) {
                 final DiagramDataElement newElement = new DiagramDataElement();
                 newElement.x = countryInfo.year;
                 newElement.y = selectedField.getDouble(countryInfo);
@@ -212,7 +209,10 @@ public class Application2 extends PApplet {
                 }
             }
             if (drawedCountries != null && drawedCountries.contains(data.country)) {
-                countryLabel = countryLabel.concat(" ¤");
+                countryLabel = countryLabel.concat("     ");
+                fill(colorOf(data.country));
+                rect(barChartLeftMargin - 20, barTop + (barHeight * (float)2/3) - 12, 12, 12);
+                fill(0f);
             }
 
             text(countryLabel, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
@@ -299,10 +299,20 @@ public class Application2 extends PApplet {
     private final int AXIS_THICKNESS = 2;
     private final float DIAGRAM_RELATIVE_SIZE = (float)1/4;
 
-    private void drawDiagram(final int noX, final int noY, final DiagramData data) {
+    private void drawDiagram(final int noX, final int noY, final Property property) throws NoSuchFieldException, IllegalAccessException {
+        final List<DiagramData> diagramDataList = new ArrayList<>();
+        float absoluteMax = 0;
+        for (Country currentCountry: drawedCountries) {
+            final DiagramData diagramData = getDiagramData(currentCountry, property);
+            diagramDataList.add(diagramData);
+            final float currentMax = diagramData.getMaxValue();
+            if (currentMax > absoluteMax) {
+                absoluteMax = currentMax;
+            }
+        }
 
-        final String title = data.title;
-        final boolean isFocused = data.property.equals(focusedProperty);
+        final String title = property.fullName;
+        final boolean isFocused = property.equals(focusedProperty);
 
         final float relativeX = (noX - 1) * DIAGRAM_RELATIVE_SIZE;
         final float relativeY = (noY - 1) * DIAGRAM_RELATIVE_SIZE;
@@ -329,22 +339,24 @@ public class Application2 extends PApplet {
         textAlign(RIGHT);
         text(MAX_YEAR, xAxisMax, yAxisBottom + MARGIN_BOTTOM / 3);
         text(0, xAxisMin - 1, yAxisBottom);
-        text(formattedValue(data.getMaxValue()), xAxisMin - 1, yAxisTop + 15);
+        text(formattedValue(absoluteMax), xAxisMin - 1, yAxisTop + 15);
 
-        final int elementCount = data.elements.size();
-        int[][] positions = new int[elementCount][2];  // x, y
-        for (int i = 0; i < elementCount; i++) {
-            float elemValue = safeFloat(data.elements.get(i).y);
-            positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
-            positions[i][1] = (int) map(elemValue, 0, safeFloat(data.getMaxValue()), yAxisBottom, yAxisTop);
-        }
-        stroke(127f);
-        for (int i = 1; i < elementCount; i++) {
-            if (positions[i][1] != yAxisBottom) {
-                line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
-            } else {    // value is 0
-                positions[i][0] = positions[i - 1][0];
-                positions[i][1] = positions[i - 1][1];
+        for (DiagramData data: diagramDataList) {
+            final int elementCount = data.elements.size();
+            int[][] positions = new int[elementCount][2];  // x, y
+            for (int i = 0; i < elementCount; i++) {
+                float elemValue = safeFloat(data.elements.get(i).y);
+                positions[i][0] = (int) map(i, 0, elementCount - 1, xAxisMin, xAxisMax);
+                positions[i][1] = (int) map(elemValue, 0, safeFloat(absoluteMax), yAxisBottom, yAxisTop);
+            }
+            stroke(colorOf(data.country));
+            for (int i = 1; i < elementCount; i++) {
+                if (positions[i][1] != yAxisBottom) {
+                    line(positions[i - 1][0], positions[i - 1][1], positions[i][0], positions[i][1]);
+                } else {    // value is 0
+                    positions[i][0] = positions[i - 1][0];
+                    positions[i][1] = positions[i - 1][1];
+                }
             }
         }
         if (isFocused) {
@@ -370,7 +382,8 @@ public class Application2 extends PApplet {
         boxW = abbrewTotalW / boxPerLine;
         boxH = 54;
         if (mouseX <= abbrewTotalW && mouseY > mapTopMargin) {
-            fill(255f);
+            fill(color(252, 255, 252));
+            stroke(0f);
             rect(0, mapTopMargin, boxW * boxPerLine, mapHeight);
             noFill();
             textSize(16);
@@ -384,7 +397,7 @@ public class Application2 extends PApplet {
                     fill(200, 200, 250);
                 }
                 else {
-                    noFill();
+                    fill(color(252, 255, 252));
                 }
                 if (mouseX > currX && mouseX <= currX + boxW && mouseY < currY + boxH && mouseY > currY) {
                     hoveredCountry = currentCountry;
@@ -594,12 +607,12 @@ public class Application2 extends PApplet {
     }
 
     private static class DiagramData {
-        public String title;
+        public Country country;
         public Property property;
         public final List<DiagramDataElement> elements = new ArrayList<DiagramDataElement>();
 
-        public DiagramData(final String title, final Property property) {
-            this.title = title;
+        public DiagramData(final Property property, final Country country) {
+            this.country = country;
             this.property = property;
         }
 
@@ -898,10 +911,18 @@ public class Application2 extends PApplet {
         Country(final String shortCode, final String fullName) {
             this.shortCode = shortCode;
             this.fullName = fullName;
+            this.r = (int)(Math.random() * 200);
+            this.g = (int)(Math.random() * 200);
+            this.b = (int)(Math.random() * 200);
         }
 
         String shortCode;
         String fullName;
+        int r, g, b;
+    }
+
+    private int colorOf(final Country country) {
+        return color(country.r, country.g, country.b);
     }
 
     private static enum Property {
