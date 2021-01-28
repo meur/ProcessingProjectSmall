@@ -23,6 +23,8 @@ public class Application2 extends PApplet {
     private PShape world;
     private final List<CountryInfo> infoList = new ArrayList<CountryInfo>();
 
+    private EnumSet<Country> drawedCountries;
+
     private int focusedPropertyIndex = 6;
     private Property focusedProperty;
     private int focusedCountryIndex = 4;
@@ -201,7 +203,18 @@ public class Application2 extends PApplet {
             rect(barChartLeftMargin + AXIS_THICKNESS, barTop, barWidth, barHeight);
             textAlign(RIGHT);
             fill(0f);
-            final String countryLabel = (i == focusedCountryIndex ? "* ": "").concat(data.country.fullName);
+
+            String countryLabel = data.country.fullName;
+            if (i == focusedCountryIndex) {
+                countryLabel = "* ".concat(countryLabel);
+                if (drawedCountries == null) {
+                    drawedCountries = EnumSet.of(data.country);
+                }
+            }
+            if (drawedCountries != null && drawedCountries.contains(data.country)) {
+                countryLabel = countryLabel.concat(" ¤");
+            }
+
             text(countryLabel, barChartLeftMargin - 5, barTop + (barHeight * (float)2/3));
 
             final String infoLabel = formattedValue(currentValue).concat((i == focusedCountryIndex ? " *": ""));
@@ -349,6 +362,7 @@ public class Application2 extends PApplet {
     final int boxYPadding = 18;
     int abbrewTotalW;
     Country hoveredCountry = null;
+
     private void drawAbbrevGrid() {
         startX = 0;
         startY = mapTopMargin;
@@ -411,7 +425,7 @@ public class Application2 extends PApplet {
                 }
             }
             else {
-                selectedCountries.remove(hoveredCountry);
+                inactivateFocusedCountry(hoveredCountry);
             }
         }
     }
@@ -434,7 +448,7 @@ public class Application2 extends PApplet {
                     if (focusedCountryIndex == selectedCountries.size() - 1) {
                         focusedCountryIndex--;
                     }
-                    selectedCountries.remove(focusedCountry);
+                    inactivateFocusedCountry(focusedCountry);
                 }
                 break;
             case '+':
@@ -466,6 +480,9 @@ public class Application2 extends PApplet {
             case 'y':
                 changeFocusedProperty(-1);
                 break;
+            case ' ':
+                flipFocusedCountryAsDrawed();
+                break;
         }
         redraw();
     }
@@ -485,7 +502,7 @@ public class Application2 extends PApplet {
     }
 
     private void replaceFocusedCountry(final int indexDiff) {
-        selectedCountries.remove(focusedCountry);
+        inactivateFocusedCountry(focusedCountry);
         int indexToAdd = Arrays.asList(Country.values()).indexOf(focusedCountry);
         Country newCountry;
         do {
@@ -526,6 +543,20 @@ public class Application2 extends PApplet {
 
     private void setFocusedProperty() {
         focusedProperty = Property.values()[focusedPropertyIndex];
+    }
+
+    private void flipFocusedCountryAsDrawed() {
+        if (drawedCountries.contains(focusedCountry)) {
+            drawedCountries.remove(focusedCountry);
+        }
+        else {
+            drawedCountries.add(focusedCountry);
+        }
+    }
+
+    private void inactivateFocusedCountry(final Country country) {
+        selectedCountries.remove(country);
+        drawedCountries.remove(country);
     }
 
     private static double safeDouble(final double input) {
